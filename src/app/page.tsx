@@ -15,6 +15,7 @@ const QUESTIONS = [
   {
     id: 'c-02',
     prompt: 'You are facing the front main entrance of 3-Story Dorms. Which cardinal direction are you looking?',
+    imageUrl: '',
     options: ['N', 'E', 'S', 'W'],
     correctAnswer: 'N',
     explanation: 'Facing the front double doors of 3-Story Dorms points almost directly North.'
@@ -22,6 +23,7 @@ const QUESTIONS = [
   {
     id: 'c-03',
     prompt: 'You spawned at Crossroads (Far West). Which guaranteed PMC extract is OPEN for you?',
+    imageUrl: '',
     options: ['Crossroads', 'Trailer Park Workers', 'ZB-1011', 'Smuggler\'s Boat'],
     correctAnswer: 'ZB-1011',
     explanation: 'Spawning on the far west side guarantees your main extraction will be on the far east at ZB-1011.'
@@ -55,4 +57,185 @@ export default function Home() {
       setStreak(0);
       setLives((prev) => {
         const next = prev - 1;
-        if (next <= 0) setIs
+        if (next <= 0) {
+          setIsGameOver(true);
+        }
+        return next;
+      });
+    }
+  };
+
+  const handleNextQuestion = () => {
+    if (currentIndex < QUESTIONS.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+      setSelectedOption(null);
+      setIsAnswerSubmitted(false);
+    } else {
+      setIsGameOver(true);
+    }
+  };
+
+  const handleRestart = () => {
+    setCurrentIndex(0);
+    setLives(3);
+    setStreak(0);
+    setSelectedOption(null);
+    setIsAnswerSubmitted(false);
+    setIsGameOver(false);
+  };
+
+  return (
+    <main className="min-h-screen flex flex-col items-center justify-center p-4 bg-zinc-950 text-zinc-100">
+      <div className="w-full max-w-xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 sm:p-8 flex flex-col gap-6">
+        
+        {/* Header Stats */}
+        <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+          <div className="flex items-center gap-2 font-bold text-amber-500">
+            <Flame className="w-6 h-6 fill-amber-500 text-amber-500" />
+            <span className="text-lg">{streak} Streak</span>
+          </div>
+
+          <div className="text-sm font-semibold text-zinc-400 tracking-wider uppercase flex items-center gap-1">
+            <Flag className="w-4 h-4" />
+            Customs Drill
+          </div>
+
+          <div className="flex items-center gap-1">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Heart
+                key={i}
+                className={`w-6 h-6 transition-colors ${
+                  i < lives ? 'fill-red-500 text-red-500' : 'text-zinc-700 fill-zinc-800'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Game Over Screen */}
+        {isGameOver ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center space-y-6">
+            <h2 className="text-3xl font-extrabold text-white">
+              {lives > 0 ? 'Drill Completed!' : 'MIA - Raid Failed'}
+            </h2>
+            <p className="text-zinc-400">
+              {lives > 0
+                ? `Great job! You finished with a streak of ${streak}.`
+                : 'You lost all your lives. Study the map and try again!'}
+            </p>
+            <button
+              onClick={handleRestart}
+              className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all flex items-center gap-2"
+            >
+              <RotateCcw className="w-5 h-5" />
+              Try Again
+            </button>
+          </div>
+        ) : (
+          /* Question Content */
+          <div className="flex flex-col gap-6">
+            <div className="space-y-3">
+              <span className="text-xs font-bold text-zinc-500 tracking-widest uppercase">
+                Question {currentIndex + 1} of {QUESTIONS.length}
+              </span>
+              <h2 className="text-xl sm:text-2xl font-bold text-zinc-100">
+                {currentQ.prompt}
+              </h2>
+            </div>
+
+            {currentQ.imageUrl && (
+              <div className="relative overflow-hidden rounded-xl border border-zinc-800 max-h-56">
+                <img
+                  src={currentQ.imageUrl}
+                  alt="Tarkov Drill Landmark"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+
+            {/* Answer Options */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {currentQ.options.map((option) => {
+                const isSelected = selectedOption === option;
+                const isCorrect = option === currentQ.correctAnswer;
+                
+                let buttonStyle = 'bg-zinc-800/80 border-zinc-700 text-zinc-200 hover:bg-zinc-800 hover:border-zinc-600';
+                
+                if (isAnswerSubmitted) {
+                  if (isCorrect) {
+                    buttonStyle = 'bg-emerald-950/80 border-emerald-500 text-emerald-300';
+                  } else if (isSelected) {
+                    buttonStyle = 'bg-red-950/80 border-red-500 text-red-300';
+                  } else {
+                    buttonStyle = 'bg-zinc-900 border-zinc-800 text-zinc-600 opacity-50';
+                  }
+                } else if (isSelected) {
+                  buttonStyle = 'bg-emerald-950/50 border-emerald-500 text-emerald-200';
+                }
+
+                return (
+                  <button
+                    key={option}
+                    onClick={() => handleSelectOption(option)}
+                    disabled={isAnswerSubmitted}
+                    className={`p-4 rounded-xl font-semibold text-left border-b-4 transition-all duration-150 ${buttonStyle} active:border-b-0 active:translate-y-1`}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Action & Feedback Footer */}
+            <div className="pt-2 border-t border-zinc-800 flex flex-col gap-4">
+              {!isAnswerSubmitted ? (
+                <button
+                  onClick={handleCheckAnswer}
+                  disabled={!selectedOption}
+                  className={`w-full py-3.5 rounded-xl font-bold uppercase tracking-wider transition-all border-b-4 ${
+                    selectedOption
+                      ? 'bg-emerald-600 border-emerald-800 hover:bg-emerald-500 text-white active:border-b-0 active:translate-y-1'
+                      : 'bg-zinc-800 border-zinc-700 text-zinc-500 cursor-not-allowed'
+                  }`}
+                >
+                  Check Answer
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <div
+                    className={`p-4 rounded-xl flex items-start gap-3 border ${
+                      selectedOption === currentQ.correctAnswer
+                        ? 'bg-emerald-950/50 border-emerald-800 text-emerald-200'
+                        : 'bg-red-950/50 border-red-800 text-red-200'
+                    }`}
+                  >
+                    {selectedOption === currentQ.correctAnswer ? (
+                      <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <XCircle className="w-6 h-6 text-red-400 shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <h4 className="font-bold text-sm">
+                        {selectedOption === currentQ.correctAnswer ? 'Excellent!' : 'Incorrect'}
+                      </h4>
+                      <p className="text-xs mt-1 text-zinc-300">
+                        {currentQ.explanation}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleNextQuestion}
+                    className="w-full py-3.5 rounded-xl font-bold uppercase tracking-wider bg-emerald-600 border-b-4 border-emerald-800 hover:bg-emerald-500 text-white active:border-b-0 active:translate-y-1 transition-all"
+                  >
+                    Continue
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
