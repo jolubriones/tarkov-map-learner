@@ -37,6 +37,25 @@ function readStoredLives(): number {
   return stored >= 1 && stored <= MAX_LIVES ? stored : MAX_LIVES;
 }
 
+// Drill image that disappears gracefully if the URL ever breaks,
+// instead of showing a broken-image icon. Key by question id so a
+// failure on one question doesn't hide the next question's image.
+function DrillImage({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-zinc-800 aspect-video max-h-44 sm:max-h-56">
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className="w-full h-full object-cover"
+      />
+    </div>
+  );
+}
+
 export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lives, setLives] = useState(readStoredLives);
@@ -220,14 +239,11 @@ export default function Home() {
             </div>
 
             {currentQ.imageUrl && (
-              <div className="relative overflow-hidden rounded-xl border border-zinc-800 aspect-video max-h-44 sm:max-h-56">
-                <img
-                  src={currentQ.imageUrl}
-                  alt="Mystery landmark to identify on Customs"
-                  loading="lazy"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <DrillImage
+                key={currentQ.id}
+                src={currentQ.imageUrl}
+                alt="Mystery landmark to identify on Customs"
+              />
             )}
 
             {/* Answer Options */}

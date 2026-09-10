@@ -1,13 +1,14 @@
 import type { Question } from './types';
 
 // Customs question bank — 15 questions covering landmarks, compass, and extracts
+// (Landmark photos: free Pexels stock used as mock stand-ins, not real Tarkov screenshots.)
 export const CUSTOMS_DRILL_QUESTIONS: Question[] = [
   {
     id: 'c-01',
     mapId: 'customs',
     type: 'landmark_mc',
     prompt: 'Identify this landmark on Customs:',
-    imageUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb186f5f7?auto=format&fit=crop&w=800&q=80',
+    imageUrl: 'https://images.pexels.com/photos/7160000/pexels-photo-7160000.jpeg?auto=compress&cs=tinysrgb&w=800',
     options: ['Big Red Warehouse', 'Crackhouse', '3-Story Dorms', 'New Gas Station'],
     correctAnswer: 'Big Red Warehouse',
     explanation: 'Big Red dominates the western industrial side of Customs near the river.',
@@ -40,7 +41,7 @@ export const CUSTOMS_DRILL_QUESTIONS: Question[] = [
     mapId: 'customs',
     type: 'landmark_mc',
     prompt: 'Identify this landmark on Customs:',
-    imageUrl: 'https://images.unsplash.com/photo-1552664734-dd639bd970ba?auto=format&fit=crop&w=800&q=80',
+    imageUrl: 'https://images.pexels.com/photos/5540003/pexels-photo-5540003.jpeg?auto=compress&cs=tinysrgb&w=800',
     options: ['Old Gas Station', 'Shelter', 'Checkpoint', 'Power Station'],
     correctAnswer: 'Old Gas Station',
     explanation: 'Old Gas Station is located on the southern side of Customs near the highway overpass.',
@@ -61,7 +62,7 @@ export const CUSTOMS_DRILL_QUESTIONS: Question[] = [
     mapId: 'customs',
     type: 'landmark_mc',
     prompt: 'Identify this landmark on Customs:',
-    imageUrl: 'https://images.unsplash.com/photo-1518717712515-45c494839636?auto=format&fit=crop&w=800&q=80',
+    imageUrl: 'https://images.pexels.com/photos/28104540/pexels-photo-28104540.jpeg?auto=compress&cs=tinysrgb&w=800',
     options: ['Gas Station', 'Railway', 'Subway', 'Underground'],
     correctAnswer: 'Railway',
     explanation: 'The railway runs along the eastern edge of Customs connecting various points.',
@@ -137,7 +138,7 @@ export const CUSTOMS_DRILL_QUESTIONS: Question[] = [
     mapId: 'customs',
     type: 'landmark_mc',
     prompt: 'Identify this landmark on Customs:',
-    imageUrl: 'https://images.unsplash.com/photo-1541896961231-8c43d4e7d8c1?auto=format&fit=crop&w=800&q=80',
+    imageUrl: 'https://images.pexels.com/photos/415470/pexels-photo-415470.jpeg?auto=compress&cs=tinysrgb&w=800',
     options: ['Wharf', 'Dock', 'Boathouse', 'Pier'],
     correctAnswer: 'Wharf',
     explanation: 'The Wharf is located on the southwestern coast of Customs near the water.',
