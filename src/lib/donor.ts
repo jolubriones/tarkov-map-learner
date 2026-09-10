@@ -47,8 +47,10 @@ function notifyDonorChange(): void {
  * STUB: accept test codes from NEXT_PUBLIC_DONOR_CODES.
  * Format: "CODE[:USD],..." — e.g. "FRIEND:10,TESTER" (amount defaults to $5).
  *
- * TODO(launch): replace with a server-side check (e.g. POST /api/donor/verify
- * against Ko-fi/Patreon records). Never trust client-computed amounts.
+ * TODO(launch): replace with a server-side check (e.g. a Supabase Edge
+ * Function, Cloudflare Worker, or your own backend endpoint verifying
+ * against Ko-fi/Patreon records — this app is a static export, so it
+ * cannot host Next.js API routes). Never trust client-computed amounts.
  */
 async function verifyDonorCode(code: string): Promise<DonorVerification> {
   const entries = (process.env.NEXT_PUBLIC_DONOR_CODES ?? '').split(',');
