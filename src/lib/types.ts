@@ -13,6 +13,8 @@ export interface LandmarkMCQuestion extends BaseQuestion {
   options: string[];
   correctAnswer: string;
   explanation?: string;
+  /** Short learning tip shown after answering (especially on wrong answers). */
+  tip?: string;
 }
 
 export interface CompassQuestion extends BaseQuestion {
@@ -20,6 +22,8 @@ export interface CompassQuestion extends BaseQuestion {
   options: ('N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW')[];
   correctAnswer: 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
   explanation?: string;
+  /** Short learning tip shown after answering (especially on wrong answers). */
+  tip?: string;
 }
 
 export interface ExtractQuestion extends BaseQuestion {
@@ -28,6 +32,8 @@ export interface ExtractQuestion extends BaseQuestion {
   options: string[];
   correctAnswer: string;
   explanation?: string;
+  /** Short learning tip shown after answering (especially on wrong answers). */
+  tip?: string;
 }
 
 export type Question = LandmarkMCQuestion | CompassQuestion | ExtractQuestion;

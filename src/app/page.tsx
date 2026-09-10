@@ -1,8 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2, XCircle, RotateCcw, Heart, Flame, Flag } from 'lucide-react';
+import { RotateCcw, Heart, Flame, Flag, Volume2, VolumeX, MapPin } from 'lucide-react';
 import { CUSTOMS_DRILL_QUESTIONS } from '@/lib/mockData';
+import AnswerFeedback from '@/components/AnswerFeedback';
+import {
+  playCorrectSound,
+  playWrongSound,
+  playSelectSound,
+  playCompleteSound,
+  playGameOverSound,
+  isMuted,
+  setMuted,
+} from '@/lib/sounds';
 
 const STORAGE_KEY = 'tarkov-map-learner-storage';
 
@@ -48,9 +58,13 @@ export default function Home() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
+  // Lazy init from storage (same pattern as streak/lives; isMuted is SSR-safe)
+  const [muted, setMutedState] = useState<boolean>(() => isMuted());
 
   const totalQuestions = CUSTOMS_DRILL_QUESTIONS.length;
   const currentQ = CUSTOMS_DRILL_QUESTIONS[currentIndex];
+  const isCorrect =
+    isAnswerSubmitted && selectedOption === currentQ.correctAnswer;
 
   // Persist state to localStorage
   useEffect(() => {
@@ -60,26 +74,37 @@ export default function Home() {
     localStorage.setItem(`${STORAGE_KEY}_gamesPlayed`, gamesPlayed.toString());
   }, [streak, lives, bestStreak, gamesPlayed]);
 
+  const toggleMute = () => {
+    const next = !muted;
+    setMuted(next);
+    setMutedState(next);
+  };
+
   const handleSelectOption = (option: string) => {
     if (isAnswerSubmitted || isGameOver) return;
     setSelectedOption(option);
+    playSelectSound();
   };
 
   const handleCheckAnswer = () => {
     if (!selectedOption || isAnswerSubmitted) return;
 
-    const isCorrect = selectedOption === currentQ.correctAnswer;
+    const correct = selectedOption === currentQ.correctAnswer;
     setIsAnswerSubmitted(true);
 
-    if (isCorrect) {
+    if (correct) {
+      playCorrectSound();
       setStreak((prev) => prev + 1);
       // Update best streak if applicable
       setBestStreak((prev) => Math.max(prev, streak + 1));
     } else {
+      playWrongSound();
       setStreak(0);
       setLives((prev) => {
         const next = prev - 1;
         if (next <= 0) {
+          // Delay the game-over sting so it doesn't overlap the wrong buzz
+          window.setTimeout(() => playGameOverSound(), 350);
           setIsGameOver(true);
           // Games played count increases even when game over
           setGamesPlayed((prev) => prev + 1);
@@ -98,6 +123,10 @@ export default function Home() {
       // Last question answered - game completes
       setIsGameOver(true);
       setGamesPlayed((prev) => prev + 1);
+      setBestStreak((prev) => Math.max(prev, streak));
+      if (lives > 0) {
+        playCompleteSound();
+      }
     }
   };
 
@@ -111,13 +140,6 @@ export default function Home() {
     setIsGameOver(false);
     setGamesPlayed((prev) => prev + 1);
   };
-
-  // Update best streak when game ends
-  useEffect(() => {
-    if (isGameOver && lives > 0) {
-      setBestStreak((prev) => Math.max(prev, streak));
-    }
-  }, [isGameOver, lives, streak]);
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-4 bg-zinc-950 text-zinc-100">
@@ -133,17 +155,28 @@ export default function Home() {
             <Flag className="w-4 h-4" /> Customs Drill
           </div>
 
-          <div className="flex items-center gap-1">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Heart
-                key={i}
-                className={`w-6 h-6 transition-colors ${
-                  i < lives
-                    ? 'fill-red-500 text-red-500'
-                    : 'text-zinc-700 fill-zinc-800'
-                }`}
-              />
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Heart
+                  key={i}
+                  className={`w-6 h-6 transition-colors ${
+                    i < lives
+                      ? 'fill-red-500 text-red-500'
+                      : 'text-zinc-700 fill-zinc-800'
+                  }`}
+                />
+              ))}
+            </div>
+            <button
+              onClick={toggleMute}
+              title={muted ? 'Unmute sounds' : 'Mute sounds'}
+              aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
+              aria-pressed={muted}
+              className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+            >
+              {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+            </button>
           </div>
         </div>
 
@@ -185,6 +218,12 @@ export default function Home() {
               <h2 className="text-xl sm:text-2xl font-bold text-zinc-100">
                 {currentQ.prompt}
               </h2>
+              {currentQ.type === 'extract_logic' && (
+                <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-300 bg-sky-950/60 border border-sky-800 rounded-full px-3 py-1">
+                  <MapPin className="w-3.5 h-3.5" />
+                  Spawn: {currentQ.spawnLocation}
+                </div>
+              )}
             </div>
 
             {currentQ.imageUrl && (
@@ -201,12 +240,12 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {currentQ.options.map((option) => {
                 const isSelected = selectedOption === option;
-                const isCorrect = option === currentQ.correctAnswer;
+                const isThisCorrect = option === currentQ.correctAnswer;
 
                 let buttonStyle = 'bg-zinc-800/80 border-zinc-700 text-zinc-200 hover:bg-zinc-800 hover:border-zinc-600';
 
                 if (isAnswerSubmitted) {
-                  if (isCorrect) {
+                  if (isThisCorrect) {
                     buttonStyle = 'bg-emerald-950/80 border-emerald-500 text-emerald-300';
                   } else if (isSelected) {
                     buttonStyle = 'bg-red-950/80 border-red-500 text-red-300';
@@ -222,6 +261,7 @@ export default function Home() {
                     key={option}
                     onClick={() => handleSelectOption(option)}
                     disabled={isAnswerSubmitted}
+                    aria-pressed={isSelected}
                     className={`p-3 rounded-xl font-semibold text-left border-b-4 transition-all duration-150 ${buttonStyle} active:border-b-0 active:translate-y-1`}
                   >
                     {option}
@@ -246,27 +286,11 @@ export default function Home() {
                 </button>
               ) : (
                 <div className="space-y-4">
-                  <div
-                    className={`p-4 rounded-xl flex items-start gap-3 border ${
-                      selectedOption === currentQ.correctAnswer
-                        ? 'bg-emerald-950/50 border-emerald-800 text-emerald-200'
-                        : 'bg-red-950/50 border-red-800 text-red-200'
-                    }`}
-                  >
-                    {selectedOption === currentQ.correctAnswer ? (
-                      <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0 mt-0.5" />
-                    ) : (
-                      <XCircle className="w-6 h-6 text-red-400 shrink-0 mt-0.5" />
-                    )}
-                    <div>
-                      <h4 className="font-bold text-sm">
-                        {selectedOption === currentQ.correctAnswer ? 'Excellent!' : 'Incorrect'}
-                      </h4>
-                      <p className="text-xs mt-1 text-zinc-300">
-                        {currentQ.explanation}
-                      </p>
-                    </div>
-                  </div>
+                  <AnswerFeedback
+                    question={currentQ}
+                    selectedOption={selectedOption!}
+                    isCorrect={isCorrect}
+                  />
 
                   <button
                     onClick={handleNextQuestion}
