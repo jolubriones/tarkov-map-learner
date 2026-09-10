@@ -24,6 +24,12 @@ Edit `src/app/page.tsx` — the page auto-updates.
 Metadata, OG image, sitemap, and robots.txt ship with the static export.
 Set `NEXT_PUBLIC_SITE_URL` before launch — see [`docs/seo.md`](docs/seo.md).
 
+## Questions
+
+Question banks live in `src/lib/mockData.ts` and are validated before
+every build. See [`docs/questions.md`](docs/questions.md) to add or edit
+questions.
+
 ## Monetization (ads & donations)
 
 The app is monetization-ready: ad slots and donation buttons are placed but
