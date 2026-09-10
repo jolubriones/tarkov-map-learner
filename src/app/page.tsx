@@ -186,9 +186,9 @@ export default function Home() {
         {/* Game Over Screen */}
         {isGameOver ? (
           <div className="flex flex-col items-center justify-center py-8 text-center space-y-6">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
               {lives > 0 ? 'Drill Completed!' : 'MIA - Raid Failed'}
-            </h2>
+            </h1>
             <p className="text-zinc-400">
               {lives > 0
                 ? `Great job! You finished with a streak of ${streak}.`
@@ -208,9 +208,9 @@ export default function Home() {
           /* Question Content */
           <div className="flex flex-col gap-6">
             <div className="space-y-3">
-              <h2 className="text-xl sm:text-2xl font-bold text-zinc-100">
+              <h1 className="text-xl sm:text-2xl font-bold text-zinc-100">
                 {currentQ.prompt}
-              </h2>
+              </h1>
               {currentQ.type === 'extract_logic' && (
                 <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-300 bg-sky-950/60 border border-sky-800 rounded-full px-3 py-1">
                   <MapPin className="w-3.5 h-3.5" />
@@ -220,10 +220,10 @@ export default function Home() {
             </div>
 
             {currentQ.imageUrl && (
-              <div className="relative overflow-hidden rounded-xl border border-zinc-800 max-h-44 sm:max-h-56">
+              <div className="relative overflow-hidden rounded-xl border border-zinc-800 aspect-video max-h-44 sm:max-h-56">
                 <img
                   src={currentQ.imageUrl}
-                  alt="Tarkov Drill Landmark"
+                  alt="Mystery landmark to identify on Customs"
                   loading="lazy"
                   className="w-full h-full object-cover"
                 />

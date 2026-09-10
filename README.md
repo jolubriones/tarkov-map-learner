@@ -19,6 +19,11 @@ Edit `src/app/page.tsx` — the page auto-updates.
 | `npm run start` | Serve the production build |
 | `npm run lint`  | Run ESLint             |
 
+## SEO
+
+Metadata, OG image, sitemap, and robots.txt ship with the static export.
+Set `NEXT_PUBLIC_SITE_URL` before launch — see [`docs/seo.md`](docs/seo.md).
+
 ## Monetization (ads & donations)
 
 The app is monetization-ready: ad slots and donation buttons are placed but

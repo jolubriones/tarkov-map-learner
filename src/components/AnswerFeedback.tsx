@@ -45,9 +45,9 @@ export default function AnswerFeedback({
           <XCircle className="w-6 h-6 text-red-400 shrink-0 mt-0.5" />
         )}
         <div>
-          <h4 className="font-bold text-sm">
+          <h2 className="font-bold text-sm">
             {isCorrect ? 'Excellent — correct!' : 'Incorrect'}
-          </h4>
+          </h2>
           {!isCorrect && (
             <p className="text-xs mt-0.5 text-zinc-400">
               You answered:{' '}
