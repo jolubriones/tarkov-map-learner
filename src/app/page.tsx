@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { RotateCcw, Heart, Flame, Flag, Volume2, VolumeX, MapPin } from 'lucide-react';
 import { CUSTOMS_DRILL_QUESTIONS } from '@/lib/mockData';
 import AnswerFeedback from '@/components/AnswerFeedback';
@@ -17,56 +17,31 @@ import {
 } from '@/lib/sounds';
 
 const STORAGE_KEY = 'tarkov-map-learner-storage';
+const MAX_LIVES = 3;
 
-// Initialize from localStorage if available
-const initStreak = (): number => {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem(`${STORAGE_KEY}_streak`);
-    return stored ? parseInt(stored, 10) : 0;
-  }
-  return 0;
-};
-
-const initLives = (): number => {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem(`${STORAGE_KEY}_lives`);
-    return stored ? parseInt(stored, 10) : 3;
-  }
-  return 3;
-};
-
-const initBestStreak = (): number => {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem(`${STORAGE_KEY}_bestStreak`);
-    return stored ? parseInt(stored, 10) : 0;
-  }
-  return 0;
-};
-
-const initGamesPlayed = (): number => {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem(`${STORAGE_KEY}_gamesPlayed`);
-    return stored ? parseInt(stored, 10) : 0;
-  }
-  return 0;
-};
+// SSR-safe read of a persisted number (falls back when missing/invalid).
+function readStoredNumber(key: string, fallback: number): number {
+  if (typeof window === 'undefined') return fallback;
+  const parsed = parseInt(localStorage.getItem(`${STORAGE_KEY}_${key}`) ?? '', 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
 
 export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [lives, setLives] = useState(initLives);
-  const [streak, setStreak] = useState(initStreak);
-  const [bestStreak, setBestStreak] = useState(initBestStreak);
-  const [gamesPlayed, setGamesPlayed] = useState(initGamesPlayed);
+  const [lives, setLives] = useState(() => readStoredNumber('lives', MAX_LIVES));
+  const [streak, setStreak] = useState(() => readStoredNumber('streak', 0));
+  const [bestStreak, setBestStreak] = useState(() => readStoredNumber('bestStreak', 0));
+  const [gamesPlayed, setGamesPlayed] = useState(() => readStoredNumber('gamesPlayed', 0));
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
-  // Lazy init from storage (same pattern as streak/lives; isMuted is SSR-safe)
+  // Lazy init from storage (same pattern as above; isMuted is SSR-safe)
   const [muted, setMutedState] = useState<boolean>(() => isMuted());
 
   const totalQuestions = CUSTOMS_DRILL_QUESTIONS.length;
   const currentQ = CUSTOMS_DRILL_QUESTIONS[currentIndex];
-  const isCorrect =
-    isAnswerSubmitted && selectedOption === currentQ.correctAnswer;
+  const isCorrect = isAnswerSubmitted && selectedOption === currentQ.correctAnswer;
+  const isRunEnding = lives <= 0 || currentIndex === totalQuestions - 1;
 
   // Persist state to localStorage
   useEffect(() => {
@@ -97,26 +72,22 @@ export default function Home() {
     if (correct) {
       playCorrectSound();
       setStreak((prev) => prev + 1);
-      // Update best streak if applicable
       setBestStreak((prev) => Math.max(prev, streak + 1));
     } else {
       playWrongSound();
       setStreak(0);
-      setLives((prev) => {
-        const next = prev - 1;
-        if (next <= 0) {
-          // Delay the game-over sting so it doesn't overlap the wrong buzz
-          window.setTimeout(() => playGameOverSound(), 350);
-          setIsGameOver(true);
-          // Games played count increases even when game over
-          setGamesPlayed((prev) => prev + 1);
-        }
-        return next;
-      });
+      setLives(lives - 1);
     }
   };
 
   const handleNextQuestion = () => {
+    if (lives <= 0) {
+      // The last answer cost the final life — end the run (feedback was shown first).
+      playGameOverSound();
+      setIsGameOver(true);
+      setGamesPlayed((prev) => prev + 1);
+      return;
+    }
     if (currentIndex < totalQuestions - 1) {
       setCurrentIndex((prev) => prev + 1);
       setSelectedOption(null);
@@ -126,15 +97,13 @@ export default function Home() {
       setIsGameOver(true);
       setGamesPlayed((prev) => prev + 1);
       setBestStreak((prev) => Math.max(prev, streak));
-      if (lives > 0) {
-        playCompleteSound();
-      }
+      playCompleteSound();
     }
   };
 
   const handleRestart = () => {
     setCurrentIndex(0);
-    setLives(3);
+    setLives(MAX_LIVES);
     setStreak(0);
     setBestStreak((prev) => Math.max(prev, streak));
     setSelectedOption(null);
@@ -159,7 +128,7 @@ export default function Home() {
 
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1">
-              {Array.from({ length: 3 }).map((_, i) => (
+              {Array.from({ length: MAX_LIVES }).map((_, i) => (
                 <Heart
                   key={i}
                   className={`w-6 h-6 transition-colors ${
@@ -238,13 +207,14 @@ export default function Home() {
                 <img
                   src={currentQ.imageUrl}
                   alt="Tarkov Drill Landmark"
+                  loading="lazy"
                   className="w-full h-full object-cover"
                 />
               </div>
             )}
 
             {/* Answer Options */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {currentQ.options.map((option) => {
                 const isSelected = selectedOption === option;
                 const isThisCorrect = option === currentQ.correctAnswer;
@@ -303,7 +273,7 @@ export default function Home() {
                     onClick={handleNextQuestion}
                     className="w-full py-3.5 rounded-xl font-bold uppercase tracking-wider bg-emerald-600 border-b-4 border-emerald-800 hover:bg-emerald-500 text-white active:border-b-0 active:translate-y-1 transition-all"
                   >
-                    Continue
+                    {isRunEnding ? 'See Results' : 'Continue'}
                   </button>
                 </div>
               )}

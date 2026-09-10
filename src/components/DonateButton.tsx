@@ -1,4 +1,3 @@
-import React from 'react';
 import { ExternalLink, HeartHandshake } from 'lucide-react';
 import { monetizationConfig } from '@/lib/monetization';
 

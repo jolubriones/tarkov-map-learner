@@ -1,7 +1,5 @@
 'use client';
 
-import React from 'react';
-import { motion } from 'framer-motion';
 import {
   CheckCircle2,
   XCircle,
@@ -32,18 +30,13 @@ export default function AnswerFeedback({
   isCorrect,
 }: AnswerFeedbackProps) {
   return (
-    <motion.div
-      key={question.id + (isCorrect ? '-correct' : '-wrong')}
-      initial={{ opacity: 0, y: 12, scale: 0.98 }}
-      animate={
-        isCorrect
-          ? { opacity: 1, y: 0, scale: 1 }
-          : { opacity: 1, y: 0, scale: 1, x: [0, -8, 8, -5, 5, 0] }
-      }
-      transition={{ duration: isCorrect ? 0.25 : 0.45 }}
+    <div
+      key={question.id}
       role="alert"
       aria-live="assertive"
       className={`rounded-xl border p-4 flex flex-col gap-3 ${
+        isCorrect ? 'animate-feedback-in' : 'animate-feedback-shake'
+      } ${
         isCorrect
           ? 'bg-emerald-950/50 border-emerald-800 text-emerald-100'
           : 'bg-red-950/50 border-red-800 text-red-100'
@@ -120,6 +113,6 @@ export default function AnswerFeedback({
           </span>
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import Script from 'next/script';
 import { AD_SLOTS, monetizationConfig } from '@/lib/monetization';
 
@@ -19,7 +19,7 @@ interface AdSlotProps {
    * Lets you run your own promos (or a donation nudge) in ad placements
    * without a third-party network.
    */
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
 /**

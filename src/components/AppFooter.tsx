@@ -1,4 +1,3 @@
-import React from 'react';
 import DonateButton from './DonateButton';
 import { monetizationConfig } from '@/lib/monetization';
 

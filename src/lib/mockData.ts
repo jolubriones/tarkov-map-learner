@@ -1,4 +1,4 @@
-import { Question } from './types';
+import type { Question } from './types';
 
 // Expanded Customs question bank - 15 questions covering landmarks, compass, and exports
 export const CUSTOMS_DRILL_QUESTIONS: Question[] = [
@@ -52,7 +52,6 @@ export const CUSTOMS_DRILL_QUESTIONS: Question[] = [
     mapId: 'customs',
     type: 'landmark_mc',
     prompt: 'Identify this landmark on Customs:',
-    imageUrl: 'https://images.unsplash.com/photo-1547658719-making-262?auto=format&fit=crop&w=800&q=80',
     options: ['Swamp', 'Basilica', "Sanitar's House", 'Pharmacy'],
     correctAnswer: "Sanitar's House",
     explanation: "Sanitar's House is in the northern residential area near the swamps of Customs.",

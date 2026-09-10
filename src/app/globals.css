@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@source "../src";
 
 :root {
   color-scheme: dark;
@@ -10,4 +9,49 @@ body {
   color: #f4f4f5;
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Feedback panel entrance */
+@keyframes feedback-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Wrong-answer entrance: fade in, then shake */
+@keyframes feedback-shake-in {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(0) translateX(-8px);
+  }
+  50% {
+    transform: translateX(8px);
+  }
+  70% {
+    transform: translateX(-5px);
+  }
+  85% {
+    transform: translateX(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-feedback-in {
+  animation: feedback-in 0.25s ease-out;
+}
+
+.animate-feedback-shake {
+  animation: feedback-shake-in 0.45s ease-out;
 }
