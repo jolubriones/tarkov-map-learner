@@ -11,6 +11,7 @@ environment — cutover is a config change, not a rewrite.
 | Accounts | username + password on this device | Supabase Auth (email + password) |
 | Questions | localStorage stub + seeds | Postgres, public to every user |
 | Photos | resized data URLs on the draft | Storage bucket (`question-images`) |
+| Audio clips | validated data URLs on the draft | Storage bucket (`question-audio`) |
 | Consensus | store functions | RLS policies + transition triggers |
 | ELO | localStorage math | `answer_rated` RPC (same math) |
 | Works offline | yes | no (drills fall back to unrated practice) |
@@ -30,7 +31,8 @@ are present, and skips otherwise.
 
 ## Schema
 
-`supabase/migrations/001_community.sql` is the whole hosted backend:
+`supabase/migrations/001_community.sql` (+ `002_community_audio.sql` for
+the trivia/audio types) is the whole hosted backend:
 tables, row-level-security, consensus triggers, the ELO RPC, and Storage
 policies. It mirrors `config.ts` / `difficulty.ts` deliberately — the
 database is the final authority once the app points at it. Consensus
@@ -40,7 +42,7 @@ without a migration, exactly like the local `COMMUNITY_CONFIG`.
 Rules enforced where they belong:
 
 - **Database** (never trust the client): required fields, length bounds,
-  answer-in-options, landmark-needs-photo, extract-needs-spawn,
+  answer-in-options, landmark-needs-photo, audio-needs-clip, extract-needs-spawn,
   one-review-per-user, no self-review/report/vote, reject-note length,
   pending caps, rating bounds. Status transitions run in triggers —
   atomic and race-free by construction.
@@ -51,7 +53,8 @@ Rules enforced where they belong:
 ## Your 30 minutes (whenever — nothing needed until then)
 
 1. Create a free Supabase project.
-2. Paste `supabase/migrations/001_community.sql` into the SQL editor, run.
+2. Paste `supabase/migrations/001_community.sql` into the SQL editor,
+   run, then paste + run `supabase/migrations/002_community_audio.sql`.
 3. Auth → Sign In / Up → **turn email confirmation OFF** (the app
    signs users in immediately after signup; with confirmation on,
    signup returns "confirm your email" instead of a session).

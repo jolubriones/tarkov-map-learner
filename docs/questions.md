@@ -21,16 +21,20 @@ three question kinds: `landmark_mc`, `compass_check`, `extract_logic`.
    `imageUrl` to that `/images/…` path. Remote URLs still validate
    (they must be reachable) but rot — prefer self-hosted, and never
    ship a landmark without an image (build error, not warning).
+   For `audio_mc`, a clip is **required** — the sound is the
+   question. Same deal: `public/audio/<map>/` (mp3/wav/ogg/webm/m4a,
+   ≤3MB) referenced as `/audio/…`. `trivia_mc` needs no media.
 3. Run `npm run validate`, then commit. Every `npm run build` validates
    first (`prebuild`), so a broken bank can never ship.
 
 ## What validation checks
 
-Errors (block the build): missing id/prompt, fewer than 2 options,
-`correctAnswer` not in `options`, duplicate ids (within and across
-banks), invalid compass values, `extract_logic` without `spawnLocation`,
-missing/invalid `difficulty`, landmark without image, and image
-problems (missing/non-photo self-hosted files, unreachable remotes).
+Errors (block the build): missing id/prompt, unknown `type`, fewer
+than 2 options, `correctAnswer` not in `options`, duplicate ids
+(within and across banks), invalid compass values, `extract_logic`
+without `spawnLocation`, missing/invalid `difficulty`, landmark
+without image, audio without clip, and media problems
+(missing/non-photo/non-audio self-hosted files, unreachable remotes).
 
 Warnings (ship anyway): missing `explanation`/`tip`/`mapId`, duplicate
 options.

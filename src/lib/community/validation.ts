@@ -23,6 +23,7 @@ export type DraftField =
   | 'correctAnswer'
   | 'spawnLocation'
   | 'imageUrl'
+  | 'audioUrl'
   | 'explanation';
 
 export type DraftErrors = Partial<Record<DraftField, string>>;
@@ -42,6 +43,14 @@ export const QUESTION_TYPE_META: Record<
   extract_logic: {
     label: 'Extract',
     blurb: 'Given a spawn, which extract is open? Needs a spawn location.',
+  },
+  trivia_mc: {
+    label: 'Trivia',
+    blurb: 'Lore, callouts, mechanics — pure text, 2–6 options.',
+  },
+  audio_mc: {
+    label: 'Audio',
+    blurb: 'Name the gun, voice, or boss in the clip.',
   },
 };
 
@@ -115,6 +124,18 @@ export function validateDraft(draft: QuestionDraft): DraftErrors {
     errors.imageUrl = 'Image must be a full http(s) URL, or leave it blank.';
   }
 
+  const audioRef = draft.audioUrl?.trim();
+  if (draft.type === 'audio_mc' && !audioRef) {
+    errors.audioUrl = 'Audio questions need a clip — the sound is the question.';
+  } else if (
+    audioRef &&
+    !isHttpUrl(audioRef) &&
+    !audioRef.startsWith('/audio/') &&
+    !audioRef.startsWith('data:audio/')
+  ) {
+    errors.audioUrl = 'Audio must be a full http(s) URL, or leave it blank.';
+  }
+
   if (draft.explanation.trim().length < C.minExplanationLength) {
     errors.explanation = `Explain the answer in at least ${C.minExplanationLength} characters — this is what players learn from.`;
   }
@@ -136,6 +157,7 @@ export function draftToQuestion(draft: QuestionDraft, id: string): Question {
     explanation: draft.explanation.trim(),
     ...(draft.tip?.trim() ? { tip: draft.tip.trim() } : {}),
     ...(draft.imageUrl?.trim() ? { imageUrl: draft.imageUrl.trim() } : {}),
+    ...(draft.audioUrl?.trim() ? { audioUrl: draft.audioUrl.trim() } : {}),
   };
   const options = draft.options.map((o) => o.trim()).filter((o) => o !== '');
   const correctAnswer = draft.correctAnswer.trim();
@@ -166,7 +188,12 @@ export function draftToQuestion(draft: QuestionDraft, id: string): Question {
         options,
         correctAnswer,
       };
+    case 'trivia_mc':
+      return { ...base, type: 'trivia_mc', options, correctAnswer };
+    case 'audio_mc':
+      return { ...base, type: 'audio_mc', options, correctAnswer };
     default:
+      // Legacy fallback: every valid type is cased above.
       return { ...base, type: 'landmark_mc', options, correctAnswer };
   }
 }
@@ -182,6 +209,7 @@ export function questionToDraft(question: Question): QuestionDraft {
     correctAnswer: question.correctAnswer,
     spawnLocation: question.type === 'extract_logic' ? question.spawnLocation : undefined,
     imageUrl: question.imageUrl,
+    audioUrl: question.audioUrl,
     explanation: question.explanation ?? '',
     tip: question.tip,
   };
@@ -197,6 +225,7 @@ export function blankDraft(type: QuestionType): QuestionDraft {
     correctAnswer: '',
     spawnLocation: type === 'extract_logic' ? '' : undefined,
     imageUrl: '',
+    audioUrl: '',
     explanation: '',
     tip: '',
   };
@@ -231,6 +260,31 @@ export function exampleDraft(type: QuestionType): QuestionDraft {
           'Spawning on the far west side guarantees your main extraction will be on the far east at ZB-1011.',
         tip: 'Opposite-side rule: spawn west → plan a full west-to-east route ending at ZB-1011.',
       };
+    case 'trivia_mc':
+      return {
+        mapId: 'customs',
+        type,
+        difficulty: 'essential',
+        prompt: 'Which boss can spawn at Dorms on Customs?',
+        options: ['Reshala', 'Glukhar', 'Killa', 'Shturman'],
+        correctAnswer: 'Reshala',
+        explanation:
+          'Reshala and his guards roam Dorms, the gas stations, and Stronghold on Customs.',
+        tip: 'Reshala = Customs. Glukhar = Reserve, Killa = Interchange, Shturman = Woods.',
+      };
+    case 'audio_mc':
+      return {
+        mapId: 'customs',
+        type,
+        difficulty: 'essential',
+        prompt: 'What gun is firing in this clip?',
+        options: ['AK-74', 'M4A1', 'VSS Vintorez', 'SV-98'],
+        correctAnswer: 'VSS Vintorez',
+        explanation:
+          'The VSS has a deep suppressed thump — nothing else in its class sounds like it.',
+        tip: 'Suppressed + deep + fast-ish: think VSS before anything else.',
+        audioUrl: '',
+      };
     default:
       return {
         mapId: 'customs',
@@ -258,6 +312,7 @@ export function draftsEqual(a: QuestionDraft, b: QuestionDraft): boolean {
       correctAnswer: d.correctAnswer.trim(),
       spawn: (d.spawnLocation ?? '').trim(),
       image: (d.imageUrl ?? '').trim(),
+      audio: (d.audioUrl ?? '').trim(),
       explanation: d.explanation.trim(),
       tip: (d.tip ?? '').trim(),
     });

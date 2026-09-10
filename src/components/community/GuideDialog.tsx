@@ -126,7 +126,7 @@ function SubmitGuide() {
     <Bullets
       items={[
         'Any signed-in player can submit through the guided template.',
-        'Required: the map, the correct answer, an explanation, a difficulty bin — and a photo for landmark questions.',
+        'Required: the map, the correct answer, an explanation, a difficulty bin — plus a photo for landmarks and a clip for audio questions.',
         `${C.approvalsToPublish} approvals publish it to drills · ${C.rejectionsToDecline} rejections decline it · no self-reviews.`,
         'Near-duplicates surface automatically — reviewers verify before approving.',
         'Authors can edit (reviews restart) or withdraw while pending.',

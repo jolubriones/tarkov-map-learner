@@ -111,6 +111,12 @@ export interface CommunityBackend {
    * Local: resized data URL (browser-only). Hosted: Storage bucket URL.
    */
   uploadPhoto(file: Blob): Promise<UrlResult>;
+  /**
+   * Validate + store an audio ID clip, returning the URL to put on the
+   * draft. Clips are kept as-is (no transcode): max 2MB / 2 minutes.
+   * Local: data URL (browser-only). Hosted: Storage bucket URL.
+   */
+  uploadAudio(file: Blob): Promise<UrlResult>;
 
   // -- skill rating ---------------------------------------------------------
   readElo(): Promise<EloState>;

@@ -109,13 +109,16 @@ are the whole point of this app:
 3. **Images get self-hosted on merge**: remote URLs are downloaded,
    sniffed (jpeg/png/gif/webp, ≤3MB), hashed for dupes, and stored as
    `public/images/<map>/<id>.<ext>`; the bank references that stable
-   path. Link rot only has to survive from submit to merge.
+   path. Link rot only has to survive from submit to merge. Audio
+   clips ride the same flow (`public/audio/<map>/<id>.<ext>`,
+   mp3/wav/ogg/webm/m4a).
 4. **Validate + commit**: `npm run validate`, review the diff, commit.
 
 Rules that keep the bank whole:
 
 - Landmark questions **require** a photo — enforced at submit time,
-  at merge time, and as a bank-validator error.
+  at merge time, and as a bank-validator error. Audio questions
+  require a clip the same way; trivia needs no media at all.
 - Stable per-map ids (`c-16`, `w-01`, …) are assigned at merge and
   never reused; prompts dedupe by exact match, images by hash.
 - Nothing ships without a maintainer seeing the pixels — moderation

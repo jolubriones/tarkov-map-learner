@@ -1,4 +1,4 @@
-export type QuestionType = 'landmark_mc' | 'compass_check' | 'extract_logic';
+export type QuestionType = 'landmark_mc' | 'compass_check' | 'extract_logic' | 'trivia_mc' | 'audio_mc';
 
 /**
  * Difficulty bins — required on every question (built-in and community).
@@ -15,6 +15,7 @@ export interface BaseQuestion {
   difficulty: QuestionDifficulty;
   prompt: string;
   imageUrl?: string;
+  audioUrl?: string;
   explanation?: string;
   /** Short learning tip shown after answering (especially on wrong answers). */
   tip?: string;
@@ -39,4 +40,21 @@ export interface ExtractQuestion extends BaseQuestion {
   correctAnswer: string;
 }
 
-export type Question = LandmarkMCQuestion | CompassQuestion | ExtractQuestion;
+export interface TriviaMCQuestion extends BaseQuestion {
+  type: 'trivia_mc';
+  options: string[];
+  correctAnswer: string;
+}
+
+export interface AudioMCQuestion extends BaseQuestion {
+  type: 'audio_mc';
+  options: string[];
+  correctAnswer: string;
+}
+
+export type Question =
+  | LandmarkMCQuestion
+  | CompassQuestion
+  | ExtractQuestion
+  | TriviaMCQuestion
+  | AudioMCQuestion;

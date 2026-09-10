@@ -40,6 +40,7 @@ import {
   withdrawSubmission,
 } from './store';
 import { applyEloAnswer, overallRating, readElo, writeElo } from './elo';
+import { prepareAudio } from './audio';
 import { blobToDataUrl, preparePhoto } from './photo';
 
 /**
@@ -206,6 +207,15 @@ export function createLocalBackend(): CommunityBackend {
     async uploadPhoto(file: Blob): Promise<UrlResult> {
       try {
         const prepared = await preparePhoto(file);
+        return { ok: true, url: await blobToDataUrl(prepared) };
+      } catch (error) {
+        return { ok: false, error: (error as Error).message };
+      }
+    },
+
+    async uploadAudio(file: Blob): Promise<UrlResult> {
+      try {
+        const prepared = await prepareAudio(file);
         return { ok: true, url: await blobToDataUrl(prepared) };
       } catch (error) {
         return { ok: false, error: (error as Error).message };

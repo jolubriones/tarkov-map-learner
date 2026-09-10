@@ -58,6 +58,7 @@ function loadBackend() {
         ],
       ],
       ['src/lib/community/photo.ts', 'cphoto.js', []],
+      ['src/lib/community/audio.ts', 'caudio.js', []],
       // NOTE: exact filenames — backend.ts dynamic-imports these relatively.
       [
         'src/lib/community/localBackend.ts',
@@ -66,6 +67,7 @@ function loadBackend() {
           ["from './store'", "from './cstore'"],
           ["from './elo'", "from './celo'"],
           ["from './photo'", "from './cphoto'"],
+          ["from './audio'", "from './caudio'"],
         ],
       ],
       [
@@ -77,6 +79,7 @@ function loadBackend() {
           ["from './elo'", "from './celo'"],
           ["from './validation'", "from './cvalidation'"],
           ["from './photo'", "from './cphoto'"],
+          ["from './audio'", "from './caudio'"],
         ],
       ],
       ['src/lib/community/backend.ts', 'cbackend.js', []],
@@ -243,6 +246,17 @@ async function runContract(create, label, suffix) {
     assert.ok(!(await b.listPendingSubmissions()).some((s) => s.id === res.id));
   });
 
+  await check(`[${label}] media rules: audio needs a clip, trivia needs no photo`, async () => {
+    await signin('alice');
+    const noClip = await b.submitQuestion({ ...DRAFT, type: 'audio_mc' });
+    assert.equal(noClip.ok, false);
+    assert.match(noClip.error ?? '', /still has errors/);
+    const withClip = await b.submitQuestion({ ...DRAFT, type: 'audio_mc', audioUrl: 'https://example.com/clip.mp3' });
+    assert.equal(withClip.ok, true);
+    const trivia = await b.submitQuestion({ ...DRAFT, type: 'trivia_mc' });
+    assert.equal(trivia.ok, true);
+  });
+
   await check(`[${label}] pending cap: 10 ok, 11th refused`, async () => {
     assert.equal((await signup('frank')).ok, true);
     for (let i = 0; i < 10; i++) {
@@ -266,6 +280,12 @@ async function runContract(create, label, suffix) {
 
   await check(`[${label}] uploadPhoto degrades cleanly without a browser`, async () => {
     const res = await b.uploadPhoto(new Blob(['x'], { type: 'image/png' }));
+    assert.equal(res.ok, false);
+    assert.match(res.error ?? '', /browser/i);
+  });
+
+  await check(`[${label}] uploadAudio degrades cleanly without a browser`, async () => {
+    const res = await b.uploadAudio(new Blob(['x'], { type: 'audio/mpeg' }));
     assert.equal(res.ok, false);
     assert.match(res.error ?? '', /browser/i);
   });

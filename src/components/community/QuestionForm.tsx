@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, type ChangeEvent } from 'react';
-import { Camera, Compass, MapPin, Plus, Sparkles, Trash2, Upload } from 'lucide-react';
+import { AudioLines, Brain, Camera, Compass, MapPin, Plus, Sparkles, Trash2, Upload } from 'lucide-react';
 import type { QuestionDraft, ActionResult } from '@/lib/community/types';
 import { COMMUNITY_CONFIG as C } from '@/lib/community/config';
 import {
@@ -20,11 +20,13 @@ import { DIFFICULTY_META, DIFFICULTY_ORDER } from '@/lib/community/difficulty';
 import { MAPS } from '@/lib/community/maps';
 import type { QuestionDifficulty, QuestionType } from '@/lib/types';
 
-const TYPE_ORDER: QuestionType[] = ['landmark_mc', 'compass_check', 'extract_logic'];
+const TYPE_ORDER: QuestionType[] = ['landmark_mc', 'compass_check', 'extract_logic', 'trivia_mc', 'audio_mc'];
 const TYPE_ICON = {
   landmark_mc: Camera,
   compass_check: Compass,
   extract_logic: MapPin,
+  trivia_mc: Brain,
+  audio_mc: AudioLines,
 } as const;
 
 /**
@@ -63,12 +65,15 @@ export default function QuestionForm({
   const [correctAnswer, setCorrectAnswer] = useState(initial?.correctAnswer ?? '');
   const [spawnLocation, setSpawnLocation] = useState(initial?.spawnLocation ?? '');
   const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? '');
+  const [audioUrl, setAudioUrl] = useState(initial?.audioUrl ?? '');
   const [explanation, setExplanation] = useState(initial?.explanation ?? '');
   const [tip, setTip] = useState(initial?.tip ?? '');
   const [errors, setErrors] = useState<DraftErrors>({});
   const [imagePreviewFailed, setImagePreviewFailed] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [audioUploading, setAudioUploading] = useState(false);
+  const [audioUploadError, setAudioUploadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const draft: QuestionDraft = useMemo(
@@ -82,10 +87,11 @@ export default function QuestionForm({
       correctAnswer,
       spawnLocation: type === 'extract_logic' ? spawnLocation : undefined,
       imageUrl,
+      audioUrl,
       explanation,
       tip,
     }),
-    [mapId, type, difficulty, prompt, options, correctAnswer, spawnLocation, imageUrl, explanation, tip]
+    [mapId, type, difficulty, prompt, options, correctAnswer, spawnLocation, imageUrl, audioUrl, explanation, tip]
   );
 
   const isCompass = type === 'compass_check';
@@ -119,6 +125,7 @@ export default function QuestionForm({
     setExplanation(example.explanation);
     setTip(example.tip ?? '');
     if (type === 'landmark_mc') setImageUrl(example.imageUrl ?? '');
+    if (type === 'audio_mc') setAudioUrl(example.audioUrl ?? '');
     setErrors({});
   };
 
@@ -167,6 +174,23 @@ export default function QuestionForm({
         setErrors((prev) => ({ ...prev, imageUrl: undefined }));
       } else {
         setUploadError(result.error);
+      }
+    });
+  };
+
+  const handleAudio = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // allow re-picking the same file
+    if (!file || !backend || audioUploading) return;
+    setAudioUploading(true);
+    setAudioUploadError(null);
+    void backend.uploadAudio(file).then((result) => {
+      setAudioUploading(false);
+      if (result.ok) {
+        setAudioUrl(result.url);
+        setErrors((prev) => ({ ...prev, audioUrl: undefined }));
+      } else {
+        setAudioUploadError(result.error);
       }
     });
   };
@@ -318,7 +342,11 @@ export default function QuestionForm({
                 ? 'e.g. You spawned at Dorms. Which guaranteed PMC extract is OPEN for you?'
                 : type === 'compass_check'
                   ? 'e.g. You are facing the front of 3-Story Dorms. Which cardinal direction are you looking?'
-                  : 'e.g. Identify this landmark on Customs:'
+                  : type === 'trivia_mc'
+                    ? 'e.g. Which boss can spawn at Dorms on Customs?'
+                    : type === 'audio_mc'
+                      ? 'e.g. What gun is firing in this clip?'
+                      : 'e.g. Identify this landmark on Customs:'
             }
             className={inputClass}
           />
@@ -538,6 +566,54 @@ export default function QuestionForm({
                 That URL didn’t load a preview — double-check it (reviewers will verify).
               </p>
             ) : null}
+          </div>
+        )}
+
+        {type === 'audio_mc' && (
+          <div className="flex flex-col gap-1.5">
+            <label className={labelClass} htmlFor="qf-audio">
+              Clip <span className="text-red-400 normal-case">(required)</span>
+            </label>
+            <input
+              id="qf-audio"
+              value={audioUrl}
+              onChange={(e) => {
+                setAudioUrl(e.target.value);
+                setErrors((prev) => ({ ...prev, audioUrl: undefined }));
+              }}
+              inputMode="url"
+              placeholder="Paste a clip URL — or upload audio below"
+              className={inputClass}
+            />
+            <FieldError message={errors.audioUrl} />
+            <label
+              className={`inline-flex items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2.5 text-xs font-bold transition-colors ${
+                audioUploading || !backend
+                  ? 'border-zinc-800 text-zinc-600 cursor-wait'
+                  : 'border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800/50 cursor-pointer'
+              }`}
+            >
+              <Upload className="w-4 h-4" />
+              {audioUploading ? 'Uploading…' : 'Upload a clip instead'}
+              <input
+                type="file"
+                accept="audio/*"
+                disabled={audioUploading || !backend}
+                onChange={handleAudio}
+                className="hidden"
+              />
+            </label>
+            {audioUploadError && (
+              <p role="alert" className="text-xs text-red-400">
+                {audioUploadError}
+              </p>
+            )}
+            <p className="text-[11px] text-zinc-600">
+              Seconds-long clips only (max 2MB / 2 minutes) — trim to just the sound.
+            </p>
+            {audioUrl.trim() && (
+              <audio controls src={audioUrl.trim()} className="w-full" preload="metadata" />
+            )}
           </div>
         )}
 

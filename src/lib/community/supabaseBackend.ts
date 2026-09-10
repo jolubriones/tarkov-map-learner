@@ -17,6 +17,7 @@ import type {
 import { ELO_SCALE, overallRating, type EloResult, type EloState } from './elo';
 import { COMMUNITY_CONFIG as C } from './config';
 import { draftToQuestion, isDraftValid } from './validation';
+import { prepareAudio } from './audio';
 import { preparePhoto } from './photo';
 import type { AuthResult, CommunityBackend, UrlResult } from './backend';
 import type { Question, QuestionDifficulty } from '@/lib/types';
@@ -143,6 +144,7 @@ interface QuestionRow {
   explanation: string;
   tip: string | null;
   image_path: string | null;
+  audio_path: string | null;
   difficulty: QuestionDraft['difficulty'];
   spawn_location: string | null;
   author_id: string;
@@ -201,8 +203,8 @@ function supabaseUrl(): string {
   return process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 }
 
-function storagePublicUrl(path: string): string {
-  return `${supabaseUrl()}/storage/v1/object/public/question-images/${path}`;
+function storagePublicUrl(bucket: string, path: string): string {
+  return `${supabaseUrl()}/storage/v1/object/public/${bucket}/${path}`;
 }
 
 /** Draft image URL → stored image_path (bucket paths round-trip; remote/data URLs pass through). */
@@ -217,8 +219,34 @@ function imageUrlToPath(url: string | undefined): string | null {
 function photoSrc(path: string | null): string | undefined {
   if (!path) return undefined;
   if (/^(https?:|data:)/.test(path)) return path;
-  return storagePublicUrl(path);
+  return storagePublicUrl('question-images', path);
 }
+
+/** Draft audio URL → stored audio_path (bucket paths round-trip; remote/data URLs pass through). */
+function audioUrlToPath(url: string | undefined): string | null {
+  if (!url) return null;
+  const prefix = `${supabaseUrl()}/storage/v1/object/public/question-audio/`;
+  if (url.startsWith(prefix)) return url.slice(prefix.length);
+  return url;
+}
+
+/** Stored audio_path → renderable URL. */
+function audioSrc(path: string | null): string | undefined {
+  if (!path) return undefined;
+  if (/^(https?:|data:)/.test(path)) return path;
+  return storagePublicUrl('question-audio', path);
+}
+
+/** Bucket-supported clip types (mirrors the question-audio allowlist) → extension. */
+const AUDIO_EXT_BY_MIME: Record<string, string> = {
+  'audio/mpeg': 'mp3',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/ogg': 'ogg',
+  'audio/webm': 'webm',
+  'audio/mp4': 'm4a',
+  'audio/aac': 'aac',
+};
 
 function draftToRow(draft: QuestionDraft): Record<string, unknown> {
   return {
@@ -230,6 +258,7 @@ function draftToRow(draft: QuestionDraft): Record<string, unknown> {
     explanation: draft.explanation,
     tip: draft.tip ?? null,
     image_path: imageUrlToPath(draft.imageUrl),
+    audio_path: audioUrlToPath(draft.audioUrl),
     difficulty: draft.difficulty,
     spawn_location: draft.spawnLocation ?? null,
   };
@@ -244,6 +273,7 @@ function draftFromRow(row: {
   explanation: string;
   tip: string | null;
   image_path: string | null;
+  audio_path: string | null;
   difficulty: QuestionDraft['difficulty'];
   spawn_location: string | null;
 }): QuestionDraft {
@@ -256,6 +286,7 @@ function draftFromRow(row: {
     explanation: row.explanation,
     tip: row.tip ?? undefined,
     imageUrl: photoSrc(row.image_path),
+    audioUrl: audioSrc(row.audio_path),
     difficulty: row.difficulty,
     spawnLocation: row.spawn_location ?? undefined,
   };
@@ -271,6 +302,7 @@ function draftFromJson(draft: Record<string, unknown>): QuestionDraft {
     explanation: draft.explanation as string,
     tip: (draft.tip as string | null) ?? null,
     image_path: (draft.image_path as string | null) ?? null,
+    audio_path: (draft.audio_path as string | null) ?? null,
     difficulty: draft.difficulty as QuestionDraft['difficulty'],
     spawn_location: (draft.spawn_location as string | null) ?? null,
   });
@@ -1165,6 +1197,30 @@ export function createSupabaseBackend(): CommunityBackend {
         return { ok: false, error: 'Upload failed — check your connection and try again.' };
       }
       return { ok: true, url: c.storage.from('question-images').getPublicUrl(path).data.publicUrl };
+    },
+
+    async uploadAudio(file: Blob): Promise<UrlResult> {
+      const uid = await sessionUserId();
+      if (!uid) return { ok: false, error: 'Sign in to upload a clip.' };
+      let prepared: Blob;
+      try {
+        prepared = await prepareAudio(file);
+      } catch (error) {
+        return { ok: false, error: (error as Error).message };
+      }
+      // Canonicalize the one nonstandard MIME some recorders emit.
+      const contentType = prepared.type === 'audio/mp3' ? 'audio/mpeg' : prepared.type;
+      const ext = AUDIO_EXT_BY_MIME[contentType];
+      if (!ext) return { ok: false, error: 'Use an MP3, WAV, OGG, WebM, or M4A clip.' };
+      const path = `${uid}/${crypto.randomUUID()}.${ext}`;
+      const c = await db();
+      const { error } = await c
+        .storage.from('question-audio')
+        .upload(path, prepared, { contentType, upsert: false });
+      if (error) {
+        return { ok: false, error: 'Upload failed — check your connection and try again.' };
+      }
+      return { ok: true, url: c.storage.from('question-audio').getPublicUrl(path).data.publicUrl };
     },
 
     async readElo(): Promise<EloState> {

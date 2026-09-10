@@ -18,7 +18,8 @@ import { fileURLToPath } from 'node:url';
 import { ROOT, transpileFiles } from './transpile.mjs';
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 const DIFFICULTIES = ['essential', 'enlightened', 'sherpa', 'immortal'];
-const IMAGE_TIMEOUT_MS = 10000;
+const TYPES = ['landmark_mc', 'compass_check', 'extract_logic', 'trivia_mc', 'audio_mc'];
+const MEDIA_TIMEOUT_MS = 10000;
 const SKIP_IMAGES =
   process.argv.includes('--skip-images') ||
   process.env.SKIP_IMAGE_CHECK === '1';
@@ -61,6 +62,9 @@ function validateBank(name, questions) {
       ids.add(q.id);
     }
 
+    if (!TYPES.includes(q.type)) {
+      errors.push(`${where}: unknown type ${JSON.stringify(q.type)}`);
+    }
     if (!q.prompt) errors.push(`${where}: missing prompt`);
 
     if (!Array.isArray(q.options) || q.options.length < 2) {
@@ -95,6 +99,9 @@ function validateBank(name, questions) {
     if (q.type === 'landmark_mc' && !q.imageUrl) {
       errors.push(`${where}: landmark without image — the picture is the question`);
     }
+    if (q.type === 'audio_mc' && !q.audioUrl) {
+      errors.push(`${where}: audio without clip — the sound is the question`);
+    }
   });
 
   return { errors, warnings };
@@ -116,10 +123,27 @@ function sniffImageExt(buf) {
   return null;
 }
 
-/** True when the URL serves an image (follows redirects, 10s timeout). */
-async function checkImageUrl(url) {
+/** MP3/WAV/OGG/WebM/M4A magic bytes → extension, else null (clips only). */
+function sniffAudioExt(buf) {
+  if (buf.length > 3 && buf.toString('ascii', 0, 3) === 'ID3') return 'mp3';
+  if (buf.length > 2 && buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0) return 'mp3';
+  if (
+    buf.length > 12 &&
+    buf.toString('ascii', 0, 4) === 'RIFF' &&
+    buf.toString('ascii', 8, 12) === 'WAVE'
+  )
+    return 'wav';
+  if (buf.length > 4 && buf.toString('ascii', 0, 4) === 'OggS') return 'ogg';
+  if (buf.length > 4 && buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3)
+    return 'webm';
+  if (buf.length > 8 && buf.toString('ascii', 4, 8) === 'ftyp') return 'm4a';
+  return null;
+}
+
+/** True when the URL serves bytes (follows redirects, 10s timeout). */
+async function checkRemoteFile(url) {
   const res = await fetch(url, {
-    signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
+    signal: AbortSignal.timeout(MEDIA_TIMEOUT_MS),
   });
   await res.arrayBuffer();
   return res.ok;
@@ -156,9 +180,9 @@ async function main() {
   }
 
   if (SKIP_IMAGES) {
-    console.log('\nSkipping image checks (--skip-images)');
+    console.log('\nSkipping media checks (--skip-images)');
   } else {
-    console.log('\nChecking images…');
+    console.log('\nChecking media…');
     for (const [, questions] of banks) {
       for (const q of questions) {
         if (!q?.imageUrl) continue;
@@ -174,13 +198,38 @@ async function main() {
           continue;
         }
         try {
-          if (await checkImageUrl(q.imageUrl)) {
+          if (await checkRemoteFile(q.imageUrl)) {
             console.log(`  ok ${q.id}`);
           } else {
             errors.push(`${q.id}: image unreachable (${q.imageUrl})`);
           }
         } catch (err) {
           errors.push(`${q.id}: image check failed (${err.cause?.code ?? err.name})`);
+        }
+      }
+    }
+    for (const [, questions] of banks) {
+      for (const q of questions) {
+        if (!q?.audioUrl) continue;
+        if (q.audioUrl.startsWith('/audio/')) {
+          const full = join(ROOT, 'public', q.audioUrl);
+          if (!existsSync(full) || !statSync(full).isFile()) {
+            errors.push(`${q.id}: self-hosted audio missing (${q.audioUrl})`);
+          } else if (!sniffAudioExt(readFileSync(full))) {
+            errors.push(`${q.id}: self-hosted file is not audio (${q.audioUrl})`);
+          } else {
+            console.log(`  ok ${q.id} (self-hosted)`);
+          }
+          continue;
+        }
+        try {
+          if (await checkRemoteFile(q.audioUrl)) {
+            console.log(`  ok ${q.id}`);
+          } else {
+            errors.push(`${q.id}: audio unreachable (${q.audioUrl})`);
+          }
+        } catch (err) {
+          errors.push(`${q.id}: audio check failed (${err.cause?.code ?? err.name})`);
         }
       }
     }
@@ -210,4 +259,4 @@ if (invokedDirectly) {
   });
 }
 
-export { loadBanks, validateBank, checkImageUrl };
+export { loadBanks, validateBank, checkRemoteFile };

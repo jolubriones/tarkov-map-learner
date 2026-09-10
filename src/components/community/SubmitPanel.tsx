@@ -115,7 +115,7 @@ export default function SubmitPanel({
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-xs text-zinc-400 leading-relaxed">
         Posting as <span className="font-bold text-zinc-200">{user.displayName}</span> · needs{' '}
         {C.approvalsToPublish} approvals to go live · map + answer + explanation + difficulty
-        bin required (landmarks also need a photo) · you can’t review your own entry.
+        bin required (landmarks need a photo, audio needs a clip) · you can’t review your own entry.
       </div>
       <QuestionForm
         key={formKey}

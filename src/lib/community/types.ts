@@ -21,6 +21,7 @@ export interface QuestionDraft {
   correctAnswer: string;
   spawnLocation?: string;
   imageUrl?: string;
+  audioUrl?: string;
   explanation: string;
   tip?: string;
 }

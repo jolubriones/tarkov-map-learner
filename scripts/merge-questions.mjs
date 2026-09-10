@@ -32,6 +32,7 @@ import { ROOT, transpileFiles } from './transpile.mjs';
 
 const IMAGE_TIMEOUT_MS = 15000;
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 3 * 1024 * 1024;
 const MARKER = '// --- Community-merged questions (scripts/merge-questions.mjs) ---';
 /** Stable id prefixes per map — assigned ids are never reused. */
 const ID_PREFIX = {
@@ -152,6 +153,23 @@ function sniffImageExt(buf) {
   return null;
 }
 
+/** MP3/WAV/OGG/WebM/M4A magic bytes → extension, else null (clips only). */
+function sniffAudioExt(buf) {
+  if (buf.length > 3 && buf.toString('ascii', 0, 3) === 'ID3') return 'mp3';
+  if (buf.length > 2 && buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0) return 'mp3';
+  if (
+    buf.length > 12 &&
+    buf.toString('ascii', 0, 4) === 'RIFF' &&
+    buf.toString('ascii', 8, 12) === 'WAVE'
+  )
+    return 'wav';
+  if (buf.length > 4 && buf.toString('ascii', 0, 4) === 'OggS') return 'ogg';
+  if (buf.length > 4 && buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3)
+    return 'webm';
+  if (buf.length > 8 && buf.toString('ascii', 4, 8) === 'ftyp') return 'm4a';
+  return null;
+}
+
 function sha256(buf) {
   return createHash('sha256').update(buf).digest('hex');
 }
@@ -180,6 +198,30 @@ async function fetchImage(url) {
   return Buffer.concat(chunks);
 }
 
+/** Fetch a remote clip with a timeout, content-type check, and size cap. */
+async function fetchAudio(url) {
+  const res = await fetch(url, { signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const contentType = res.headers.get('content-type') ?? '';
+  if (!contentType.startsWith('audio/')) {
+    throw new Error(`not audio (${contentType || 'missing content-type'})`);
+  }
+  const reader = res.body.getReader();
+  const chunks = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > MAX_AUDIO_BYTES) {
+      await reader.cancel();
+      throw new Error(`over ${MAX_AUDIO_BYTES} bytes`);
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks);
+}
+
 /** sha256 → '/images/…' path for everything already self-hosted. */
 function hashPublicImages() {
   const hashes = new Map();
@@ -197,6 +239,26 @@ function hashPublicImages() {
     }
   };
   walk(join(PUBLIC_DIR, 'images'));
+  return hashes;
+}
+
+/** sha256 → '/audio/…' path for every self-hosted clip. */
+function hashPublicAudio() {
+  const hashes = new Map();
+  const walk = (dir) => {
+    if (!existsSync(dir)) return;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile()) {
+        const bytes = readFileSync(full);
+        if (sniffAudioExt(bytes)) {
+          hashes.set(sha256(bytes), `/${relative(PUBLIC_DIR, full).replace(/\\/g, '/')}`);
+        }
+      }
+    }
+  };
+  walk(join(PUBLIC_DIR, 'audio'));
   return hashes;
 }
 
@@ -222,6 +284,7 @@ async function main() {
   const { validation, bank } = loadValidation();
   const bankPrompts = new Set(bank.map((q) => normalizePrompt(q.prompt)));
   const imageHashes = hashPublicImages();
+  const audioHashes = hashPublicAudio();
   const nextId = {};
   for (const q of bank) {
     const match = /^([a-z]+)-(\d+)$/.exec(q.id);
@@ -231,6 +294,7 @@ async function main() {
   const merged = [];
   const skipped = [];
   let pendingImages = 0;
+  let pendingAudios = 0;
   for (const [index, entry] of manifest.questions.entries()) {
     const tag = entry?.submissionId ?? `#${index}`;
     const draft = entry?.draft;
@@ -318,17 +382,82 @@ async function main() {
       }
     }
 
+    // Audio mirrors images: /audio/… paths verified + kept, remotes
+    // downloaded + self-hosted (data: URLs decode through fetch too).
+    let audioUrl;
+    const audioRef = draft.audioUrl?.trim();
+    if (audioRef) {
+      if (audioRef.startsWith('/audio/')) {
+        const full = join(PUBLIC_DIR, audioRef);
+        if (!existsSync(full) || !statSync(full).isFile()) {
+          skipped.push(`${tag}: local clip missing: ${audioRef}`);
+          continue;
+        }
+        const bytes = readFileSync(full);
+        if (!sniffAudioExt(bytes)) {
+          skipped.push(`${tag}: local file is not audio: ${audioRef}`);
+          continue;
+        }
+        audioUrl = audioHashes.get(sha256(bytes)) ?? audioRef;
+      } else {
+        if (DRY_RUN) {
+          pendingAudios++;
+          console.log(`  would fetch audio for ${tag}: ${audioRef.slice(0, 80)}`);
+          continue;
+        }
+        let bytes;
+        try {
+          bytes = await fetchAudio(audioRef);
+        } catch (error) {
+          skipped.push(`${tag}: audio fetch failed — ${error.message}`);
+          continue;
+        }
+        const ext = sniffAudioExt(bytes);
+        if (!ext) {
+          skipped.push(`${tag}: downloaded file is not audio (mp3/wav/ogg/webm/m4a only)`);
+          continue;
+        }
+        const hash = sha256(bytes);
+        const dupe = audioHashes.get(hash);
+        if (dupe) {
+          audioUrl = dupe;
+          console.log(`  reusing existing audio for ${tag}: ${dupe}`);
+        } else {
+          const relPath = `/audio/${draft.mapId}/${id}.${ext}`;
+          const dest = join(PUBLIC_DIR, relPath);
+          mkdirSync(dirname(dest), { recursive: true });
+          try {
+            writeFileSync(dest, bytes, { flag: 'wx' });
+          } catch (error) {
+            if (error?.code !== 'EEXIST') throw error;
+            skipped.push(`${tag}: ${relPath} already exists — clean up and retry`);
+            continue;
+          }
+          audioHashes.set(hash, relPath);
+          audioUrl = relPath;
+        }
+      }
+    }
+
     nextId[prefix] = (nextId[prefix] ?? 0) + 1;
     bankPrompts.add(normalizePrompt(draft.prompt));
-    merged.push(validation.draftToQuestion({ ...draft, ...(imageUrl ? { imageUrl } : {}) }, id));
+    merged.push(
+      validation.draftToQuestion(
+        { ...draft, ...(imageUrl ? { imageUrl } : {}), ...(audioUrl ? { audioUrl } : {}) },
+        id
+      )
+    );
     console.log(`  + ${id} (${draft.mapId}, ${draft.type}): ${draft.prompt.slice(0, 70)}`);
   }
 
   for (const note of skipped) console.log(`  - skip: ${note}`);
   if (DRY_RUN) {
-    const imageNote = pendingImages > 0 ? ` (${pendingImages} need image fetch)` : '';
+    const fetches = [];
+    if (pendingImages > 0) fetches.push(`${pendingImages} need image fetch`);
+    if (pendingAudios > 0) fetches.push(`${pendingAudios} need audio fetch`);
+    const fetchNote = fetches.length > 0 ? ` (${fetches.join(', ')})` : '';
     console.log(
-      `\ndry run: ${merged.length} would merge${imageNote}, ${skipped.length} skipped, nothing written`
+      `\ndry run: ${merged.length} would merge${fetchNote}, ${skipped.length} skipped, nothing written`
     );
     return;
   }

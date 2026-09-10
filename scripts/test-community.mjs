@@ -67,6 +67,7 @@ function loadStore() {
       store: t.require('cstore.js'),
       elo: t.require('celo.js'),
       maps: t.require('cmaps.js'),
+      validation: t.require('cvalidation.js'),
     };
   } finally {
     t.cleanup();
@@ -77,6 +78,7 @@ const first = loadStore();
 const store = first.store;
 const elo = first.elo;
 const maps = first.maps;
+const validation = first.validation;
 
 /** A freshly-required store module (new tmp paths = no require-cache hit). */
 function reloadStore() {
@@ -141,6 +143,13 @@ check('submit: gated + validated', () => {
     store.submitQuestion({ ...DRAFT, type: 'landmark_mc', imageUrl: '/images/customs/c-05.jpg' }).ok,
     true
   ); // self-hosted refs stay valid
+  assert.equal(store.submitQuestion({ ...DRAFT, type: 'audio_mc' }).ok, false); // clip required
+  assert.match(validation.validateDraft({ ...DRAFT, type: 'audio_mc' }).audioUrl ?? '', /clip/);
+  assert.equal(
+    store.submitQuestion({ ...DRAFT, type: 'audio_mc', audioUrl: 'https://example.com/clip.mp3' }).ok,
+    true
+  );
+  assert.equal(store.submitQuestion({ ...DRAFT, type: 'trivia_mc' }).ok, true); // no photo needed
   const res = store.submitQuestion(DRAFT);
   assert.equal(res.ok, true);
   globalThis.__subId = res.id;

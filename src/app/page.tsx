@@ -751,6 +751,16 @@ export default function Home() {
               />
             )}
 
+            {currentQ.audioUrl && (
+              <audio
+                key={currentQ.id}
+                controls
+                src={currentQ.audioUrl}
+                className="w-full"
+                preload="metadata"
+              />
+            )}
+
             {/* Answer Options */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {currentQ.options.map((option) => {

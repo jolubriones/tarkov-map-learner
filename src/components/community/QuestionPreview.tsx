@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BookOpen, Compass, Lightbulb, MapPin, Camera, Check } from 'lucide-react';
+import { AudioLines, BookOpen, Brain, Compass, Lightbulb, MapPin, Camera, Check } from 'lucide-react';
 import type { QuestionDraft } from '@/lib/community/types';
 import { QUESTION_TYPE_META } from '@/lib/community/validation';
 import { DifficultyBadge } from './ui';
@@ -10,6 +10,8 @@ const TYPE_ICON = {
   landmark_mc: Camera,
   compass_check: Compass,
   extract_logic: MapPin,
+  trivia_mc: Brain,
+  audio_mc: AudioLines,
 } as const;
 
 /**
@@ -49,6 +51,10 @@ export default function QuestionPreview({
       <p className={`font-bold text-zinc-100 leading-snug ${compact ? 'text-sm' : 'text-base'}`}>
         {draft.prompt.trim() || <span className="text-zinc-600">Your prompt appears here…</span>}
       </p>
+
+      {draft.audioUrl?.trim() && (
+        <audio controls src={draft.audioUrl.trim()} className="w-full" preload="metadata" />
+      )}
 
       {showImage && (
         <div className="relative overflow-hidden rounded-xl border border-zinc-800 aspect-video max-h-44">
