@@ -49,8 +49,8 @@ export const CUSTOMS_DRILL_QUESTIONS: Question[] = [
     type: 'landmark_mc',
     prompt: 'Identify this landmark on Customs:',
     imageUrl: 'https://images.unsplash.com/photo-1547658719-making-262?auto=format&fit=crop&w=800&q=80',
-    options: ['Swamp', 'Basilica', \"Sanitar's House\", 'Pharmacy'],
-    correctAnswer: \"Sanitar's House\",
+    options: ['Swamp', 'Basilica', "Sanitar's House", 'Pharmacy'],
+    correctAnswer: "Sanitar's House",
     explanation: "Sanitar's House is in the northern residential area near the swamps of Customs."
   },
   {
@@ -138,9 +138,9 @@ export const CUSTOMS_DRILL_QUESTIONS: Question[] = [
     mapId: 'customs',
     type: 'compass_check',
     prompt: 'You are facing the back of the 3-Story Dorms. Which direction?',
-    options: ['N', 'NE', 'E', 'SE'],
-    correctAnswer: 'W',
-    explanation: 'Facing the back of 3-Story Dorms points you west towards the open area.'
+    options: ['N', 'NE', 'E', 'SE', 'S', 'SW'],
+    correctAnswer: 'S',
+    explanation: 'Facing the back of 3-Story Dorms points you south towards the open area.'
   },
   {
     id: 'c-15',

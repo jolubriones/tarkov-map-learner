@@ -8,7 +8,7 @@ const STORAGE_KEY = 'tarkov-map-learner-storage';
 
 // Initialize from localStorage if available
 const initStreak = (): number => {
-  if typeof window !== 'undefined') {
+  if (typeof window !== 'undefined') {
     const stored = localStorage.getItem(`${STORAGE_KEY}_streak`);
     return stored ? parseInt(stored, 10) : 0;
   }
@@ -176,7 +176,7 @@ export default function Home() {
             </button>
           </div>
         ) : (
-          /* Question Content */}
+          /* Question Content */
           <div className="flex flex-col gap-6">
             <div className="space-y-3">
               <span className="text-xs font-bold text-zinc-500 tracking-widest uppercase">
