@@ -9,7 +9,7 @@ import {
   QUESTION_TYPE_META,
   blankDraft,
   exampleDraft,
-  findDuplicateHits,
+  findPoolDuplicates,
   validateDraft,
   type DraftErrors,
 } from '@/lib/community/validation';
@@ -90,21 +90,10 @@ export default function QuestionForm({
 
   const isCompass = type === 'compass_check';
 
-  const dupHits = useMemo(() => {
-    const candidates = [
-      ...(live ?? []).map((l) => ({
-        questionId: l.question.id,
-        prompt: l.question.prompt,
-        source: l.source,
-      })),
-      ...(pending ?? []).map((s) => ({
-        questionId: s.id,
-        prompt: s.draft.prompt,
-        source: 'pending' as const,
-      })),
-    ];
-    return findDuplicateHits(candidates, prompt, excludeQuestionId);
-  }, [live, pending, prompt, excludeQuestionId]);
+  const dupHits = useMemo(
+    () => findPoolDuplicates(live ?? [], pending ?? [], prompt, excludeQuestionId),
+    [live, pending, prompt, excludeQuestionId]
+  );
 
   const switchType = (next: QuestionType) => {
     setType(next);

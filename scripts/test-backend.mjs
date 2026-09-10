@@ -15,30 +15,15 @@
  * so parity between adapters is asserted, not assumed.
  */
 import assert from 'node:assert';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const require = createRequire(import.meta.url);
-const ts = require('typescript');
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+import { mockBrowser, transpileFiles } from './transpile.mjs';
 
 // Minimal browser stand-ins (defined before modules load).
-const backing = new Map();
-globalThis.localStorage = {
-  getItem: (k) => (backing.has(k) ? backing.get(k) : null),
-  setItem: (k, v) => void backing.set(k, String(v)),
-  removeItem: (k) => void backing.delete(k),
-};
-globalThis.window = { addEventListener: () => {} };
+mockBrowser();
 
 /** Transpile the backend + deps into one temp dir with flat requires. */
 function loadBackend() {
-  const tmp = mkdtempSync(join(tmpdir(), 'backend-test-'));
-  {
-    const files = [
+  const t = transpileFiles(
+    [
       ['src/lib/types.ts', 'libtypes.js', []],
       ['src/lib/mockData.ts', 'mockData.js', [["from './types'", "from './libtypes'"]]],
       ['src/lib/community/config.ts', 'cconfig.js', []],
@@ -95,25 +80,18 @@ function loadBackend() {
         ],
       ],
       ['src/lib/community/backend.ts', 'cbackend.js', []],
-    ];
-    for (const [src, dest, rewrites] of files) {
-      let code = readFileSync(join(ROOT, src), 'utf8');
-      for (const [from, to] of rewrites) code = code.split(from).join(to);
-      const js = ts.transpileModule(code, {
-        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-      }).outputText;
-      writeFileSync(join(tmp, dest), js);
-    }
-    // Tmp must outlive the run: backend.ts dynamic-imports resolve
-    // relatively at call time, so deleting early breaks resolution.
-    // Pre-require for graph errors up front, clean up in main's finally.
-    const mods = {
-      backend: require(join(tmp, 'cbackend.js')),
-      local: require(join(tmp, 'localBackend.js')),
-      supabase: require(join(tmp, 'supabaseBackend.js')),
-    };
-    return { mods, cleanup: () => rmSync(tmp, { recursive: true, force: true }) };
-  }
+    ],
+    'backend-test-'
+  );
+  // The temp dir must outlive the run: backend.ts dynamic-imports resolve
+  // relatively at call time, so deleting early breaks resolution.
+  // Pre-require for graph errors up front, clean up in main's finally.
+  const mods = {
+    backend: t.require('cbackend.js'),
+    local: t.require('localBackend.js'),
+    supabase: t.require('supabaseBackend.js'),
+  };
+  return { mods, cleanup: t.cleanup };
 }
 
 const loaded = loadBackend();

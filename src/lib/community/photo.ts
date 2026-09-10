@@ -9,10 +9,10 @@
  * phone photos of monitors).
  */
 
-export const PHOTO_MAX_DIMENSION = 1600;
-export const PHOTO_JPEG_QUALITY = 0.82;
+const PHOTO_MAX_DIMENSION = 1600;
+const PHOTO_JPEG_QUALITY = 0.82;
 /** Refuse absurd files before decoding (25MB of anything image-ish). */
-export const PHOTO_MAX_INPUT_BYTES = 25 * 1024 * 1024;
+const PHOTO_MAX_INPUT_BYTES = 25 * 1024 * 1024;
 
 /**
  * Decode + resize + re-encode an image file. Never upscales; portraits are

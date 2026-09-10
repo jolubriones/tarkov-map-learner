@@ -22,21 +22,13 @@ import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
-  mkdtempSync,
   readdirSync,
   readFileSync,
-  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const require = createRequire(import.meta.url);
-const ts = require('typescript');
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+import { ROOT, transpileFiles } from './transpile.mjs';
 
 const IMAGE_TIMEOUT_MS = 15000;
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
@@ -97,9 +89,8 @@ const PUBLIC_DIR = join(ROOT, publicDir);
 
 /** Transpile the app's own validation module (single source of truth). */
 function loadValidation() {
-  const tmp = mkdtempSync(join(tmpdir(), 'merge-'));
-  try {
-    const files = [
+  const t = transpileFiles(
+    [
       ['src/lib/types.ts', 'libtypes.js', []],
       ['src/lib/community/config.ts', 'cconfig.js', []],
       ['src/lib/community/difficulty.ts', 'cdifficulty.js', [["'@/lib/types'", "'./libtypes'"]]],
@@ -124,23 +115,18 @@ function loadValidation() {
         ],
       ],
       ['src/lib/mockData.ts', 'bank.js', []],
-    ];
-    for (const [src, dest, rewrites] of files) {
-      let code = readFileSync(join(ROOT, src), 'utf8');
-      for (const [from, to] of rewrites) code = code.split(from).join(to);
-      const js = ts.transpileModule(code, {
-        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-      }).outputText;
-      writeFileSync(join(tmp, dest), js);
-    }
+    ],
+    'merge-'
+  );
+  try {
     return {
-      validation: require(join(tmp, 'cvalidation.js')),
-      bank: Object.values(require(join(tmp, 'bank.js')))
+      validation: t.require('cvalidation.js'),
+      bank: Object.values(t.require('bank.js'))
         .filter(Array.isArray)
         .flat(),
     };
   } finally {
-    rmSync(tmp, { recursive: true, force: true });
+    t.cleanup();
   }
 }
 

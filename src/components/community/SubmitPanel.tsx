@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CheckCircle2, ClipboardCheck, PlusCircle, User } from 'lucide-react';
-import { useBackend, useSessionUser } from '@/hooks/useCommunity';
+import { backendNotReady, useBackend, useSessionUser } from '@/hooks/useCommunity';
 import { COMMUNITY_CONFIG as C } from '@/lib/community/config';
 import type { ActionResult, QuestionDraft } from '@/lib/community/types';
 import QuestionForm from './QuestionForm';
@@ -97,9 +97,9 @@ export default function SubmitPanel({
 
   const handleSubmit = async (draft: QuestionDraft): Promise<ActionResult> => {
     if (!backend) {
-      const error = 'Still loading — try again in a moment.';
-      setTopError(error);
-      return { ok: false, error };
+      const result = backendNotReady();
+      setTopError(result.error);
+      return result;
     }
     const result = await backend.submitQuestion(draft);
     if (result.ok) {

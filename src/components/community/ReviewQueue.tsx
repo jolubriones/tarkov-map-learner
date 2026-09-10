@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import {
+  backendNotReady,
   useBackend,
   useFlaggedItems,
   useLivePool,
@@ -36,7 +37,7 @@ import {
   type Review,
   type Submission,
 } from '@/lib/community/types';
-import { draftsEqual, findDuplicateHits, questionToDraft } from '@/lib/community/validation';
+import { draftsEqual, findPoolDuplicates, questionToDraft } from '@/lib/community/validation';
 import { DIFFICULTY_META } from '@/lib/community/difficulty';
 import { reportReasonLabel, timeAgo } from '@/lib/community/format';
 import QuestionPreview from './QuestionPreview';
@@ -375,21 +376,10 @@ function SubmissionCard({
   pendingSubs: Submission[];
 }) {
   const { backend } = useBackend();
-  const dupHits = useMemo(() => {
-    const candidates = [
-      ...live.map((l) => ({
-        questionId: l.question.id,
-        prompt: l.question.prompt,
-        source: l.source,
-      })),
-      ...pendingSubs.map((s) => ({
-        questionId: s.id,
-        prompt: s.draft.prompt,
-        source: 'pending' as const,
-      })),
-    ];
-    return findDuplicateHits(candidates, submission.draft.prompt, submission.id);
-  }, [live, pendingSubs, submission.draft.prompt, submission.id]);
+  const dupHits = useMemo(
+    () => findPoolDuplicates(live, pendingSubs, submission.draft.prompt, submission.id),
+    [live, pendingSubs, submission.draft.prompt, submission.id]
+  );
   return (
     <article className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -429,7 +419,7 @@ function SubmissionCard({
         isAuthor={user?.id === submission.authorId}
         onRequireAuth={onRequireAuth}
         onReview={async (decision, comment) => {
-          if (!backend) return { ok: false as const, error: 'Still loading — try again in a moment.' };
+          if (!backend) return backendNotReady();
           return backend.reviewSubmission(submission.id, decision, comment);
         }}
       />
@@ -520,7 +510,7 @@ function CorrectionCard({
         isAuthor={user?.id === fix.authorId}
         onRequireAuth={onRequireAuth}
         onReview={async (decision, comment) => {
-          if (!backend) return { ok: false as const, error: 'Still loading — try again in a moment.' };
+          if (!backend) return backendNotReady();
           return backend.reviewCorrection(fix.id, decision, comment);
         }}
         approveLabel="Approve fix"
@@ -717,9 +707,9 @@ function CorrectionEditor({
       return { ok: false as const, error: err };
     }
     if (!backend) {
-      const err = 'Still loading — try again in a moment.';
-      setTopError(err);
-      return { ok: false as const, error: err };
+      const result = backendNotReady();
+      setTopError(result.error);
+      return result;
     }
     const result = await backend.proposeCorrection(questionId, draft, reason);
     if (result.ok) {
@@ -977,9 +967,9 @@ function MineSubmissionCard({ submission: s }: { submission: Submission }) {
           topError={error}
           onSubmit={async (draft) => {
             if (!backend) {
-              const err = 'Still loading — try again in a moment.';
-              setError(err);
-              return { ok: false as const, error: err };
+              const result = backendNotReady();
+              setError(result.error);
+              return result;
             }
             const result = await backend.editSubmission(s.id, draft);
             if (result.ok) {
@@ -1019,9 +1009,9 @@ function MineSubmissionCard({ submission: s }: { submission: Submission }) {
           onEdit={() => setEditing(true)}
           onWithdraw={async () => {
             if (!backend) {
-              const err = 'Still loading — try again in a moment.';
-              setError(err);
-              return { ok: false as const, error: err };
+              const result = backendNotReady();
+              setError(result.error);
+              return result;
             }
             const result = await backend.withdrawSubmission(s.id);
             if (!result.ok) setError(result.error);
@@ -1033,9 +1023,9 @@ function MineSubmissionCard({ submission: s }: { submission: Submission }) {
         <RemoveFromPool
           onRemove={async () => {
             if (!backend) {
-              const err = 'Still loading — try again in a moment.';
-              setError(err);
-              return { ok: false as const, error: err };
+              const result = backendNotReady();
+              setError(result.error);
+              return result;
             }
             const result = await backend.removeSubmission(s.id);
             if (!result.ok) setError(result.error);
@@ -1095,9 +1085,9 @@ function MineCorrectionCard({ fix: c, live }: { fix: CorrectionProposal; live: L
           topError={error}
           onSubmit={async (draft) => {
             if (!backend) {
-              const err = 'Still loading — try again in a moment.';
-              setError(err);
-              return { ok: false as const, error: err };
+              const result = backendNotReady();
+              setError(result.error);
+              return result;
             }
             const result = await backend.editCorrection(c.id, draft, reason);
             if (result.ok) {
@@ -1136,9 +1126,9 @@ function MineCorrectionCard({ fix: c, live }: { fix: CorrectionProposal; live: L
           onEdit={() => setEditing(true)}
           onWithdraw={async () => {
             if (!backend) {
-              const err = 'Still loading — try again in a moment.';
-              setError(err);
-              return { ok: false as const, error: err };
+              const result = backendNotReady();
+              setError(result.error);
+              return result;
             }
             const result = await backend.withdrawCorrection(c.id);
             if (!result.ok) setError(result.error);

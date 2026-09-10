@@ -3,7 +3,7 @@ import { DIFFICULTY_META, DIFFICULTY_ORDER } from './difficulty';
 import type { QuestionDifficulty } from '@/lib/types';
 
 /** The rating a question of this bin defends. */
-export function questionRatingFor(difficulty: QuestionDifficulty): number {
+function questionRatingFor(difficulty: QuestionDifficulty): number {
   return DIFFICULTY_META[difficulty].questionRating;
 }
 

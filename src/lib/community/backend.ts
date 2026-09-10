@@ -5,6 +5,7 @@ import type {
   CommunityUser,
   CorrectionProposal,
   FlaggedItem,
+  IdResult,
   LiveQuestion,
   QuestionDraft,
   QuestionReport,
@@ -33,7 +34,6 @@ export function backendKind(): BackendKind {
 }
 
 export type AuthResult = { ok: true; user: CommunityUser } | { ok: false; error: string };
-export type IdResult = { ok: true; id: string } | { ok: false; error: string };
 export type UrlResult = { ok: true; url: string } | { ok: false; error: string };
 
 /**

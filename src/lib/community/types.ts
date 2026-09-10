@@ -134,7 +134,7 @@ export interface CommunityState {
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-export type SubmitResult = { ok: true; id: string } | { ok: false; error: string };
+export type IdResult = { ok: true; id: string } | { ok: false; error: string };
 
 /**
  * Curator handoff: a player's approved questions as portable JSON.

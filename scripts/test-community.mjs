@@ -12,30 +12,15 @@
  * review/report/vote per player).
  */
 import assert from 'node:assert';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const require = createRequire(import.meta.url);
-const ts = require('typescript');
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+import { mockBrowser, transpileFiles } from './transpile.mjs';
 
 // Minimal browser stand-ins (defined before the store loads).
-const backing = new Map();
-globalThis.localStorage = {
-  getItem: (k) => (backing.has(k) ? backing.get(k) : null),
-  setItem: (k, v) => void backing.set(k, String(v)),
-  removeItem: (k) => void backing.delete(k),
-};
-globalThis.window = { addEventListener: () => {} };
+const backing = mockBrowser();
 
 /** Transpile the store + its deps into one temp dir with flat requires. */
 function loadStore() {
-  const tmp = mkdtempSync(join(tmpdir(), 'community-test-'));
-  try {
-    const files = [
+  const t = transpileFiles(
+    [
       ['src/lib/types.ts', 'libtypes.js', []],
       ['src/lib/mockData.ts', 'mockData.js', [["from './types'", "from './libtypes'"]]],
       ['src/lib/community/config.ts', 'cconfig.js', []],
@@ -74,22 +59,17 @@ function loadStore() {
           ["from './validation'", "from './cvalidation'"],
         ],
       ],
-    ];
-    for (const [src, dest, rewrites] of files) {
-      let code = readFileSync(join(ROOT, src), 'utf8');
-      for (const [from, to] of rewrites) code = code.split(from).join(to);
-      const js = ts.transpileModule(code, {
-        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-      }).outputText;
-      writeFileSync(join(tmp, dest), js);
-    }
+    ],
+    'community-test-'
+  );
+  try {
     return {
-      store: require(join(tmp, 'cstore.js')),
-      elo: require(join(tmp, 'celo.js')),
-      maps: require(join(tmp, 'cmaps.js')),
+      store: t.require('cstore.js'),
+      elo: t.require('celo.js'),
+      maps: t.require('cmaps.js'),
     };
   } finally {
-    rmSync(tmp, { recursive: true, force: true });
+    t.cleanup();
   }
 }
 

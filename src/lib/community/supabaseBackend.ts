@@ -4,6 +4,7 @@ import type {
   CommunityUser,
   CorrectionProposal,
   FlaggedItem,
+  IdResult,
   LiveQuestion,
   QuestionDraft,
   QuestionReport,
@@ -17,12 +18,7 @@ import { ELO_SCALE, overallRating, type EloResult, type EloState } from './elo';
 import { COMMUNITY_CONFIG as C } from './config';
 import { draftToQuestion, isDraftValid } from './validation';
 import { preparePhoto } from './photo';
-import type {
-  AuthResult,
-  CommunityBackend,
-  IdResult,
-  UrlResult,
-} from './backend';
+import type { AuthResult, CommunityBackend, UrlResult } from './backend';
 import type { Question, QuestionDifficulty } from '@/lib/types';
 
 // ---------------------------------------------------------------------------

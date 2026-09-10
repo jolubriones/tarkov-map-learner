@@ -178,7 +178,7 @@ Rules that keep the bank whole:
 | Account dialog | `src/components/community/AuthDialog.tsx` |
 | In-app guide (ranks / submit / review / reports) | `src/components/community/GuideDialog.tsx` |
 | Drill integration (pool, bin + map filters, badges, report button) | `src/app/page.tsx` |
-| Logic tests (13 checks over the full loop) | `scripts/test-community.mjs` (`npm run test:community`) |
+| Logic tests (14 checks over the full loop) | `scripts/test-community.mjs` (`npm run test:community`) |
 
 First run seeds demo content (a 2/3-approved submission, a flagged
 question with a pending fix, an already-live community question) so every
@@ -198,38 +198,14 @@ conservative `essential` default instead of crashing, and the community
 can re-bin them via fixes. Bump + migrate on future schema changes;
 never rename the storage key (that would orphan player data).
 
-## Going multi-user: hosted backend migration
+## Going multi-user: hosted backend (done)
 
-The store's shapes map 1:1 onto hosted tables, so migration is a store
-swap, not a redesign. Suggested Supabase sketch:
+The hosted backend is implemented and cut over by config: setting the
+Supabase env vars switches the whole app at once. The rules in this doc
+are identical on both backends — see [`backend.md`](backend.md) for the
+schema, RLS, RPCs, and the activation checklist. `npm run test:backend`
+asserts parity by running the same flow against every adapter.
 
-```sql
-create table profiles (id uuid primary key references auth.users, username text unique not null, display_name text not null);
-create table submissions (id uuid primary key default gen_random_uuid(), draft jsonb not null, author_id uuid references profiles, status text default 'pending', created_at timestamptz default now());
-create table reviews (submission_id uuid references submissions, reviewer_id uuid references profiles, decision text, comment text, created_at timestamptz default now(), primary key (submission_id, reviewer_id));
-create table reports (id uuid primary key default gen_random_uuid(), question_id text not null, reporter_id uuid references profiles, reason text, details text, status text default 'open', created_at timestamptz default now(), unique (question_id, reporter_id));
-create table corrections (id uuid primary key default gen_random_uuid(), question_id text not null, draft jsonb not null, reason text not null, author_id uuid references profiles, status text default 'pending', created_at timestamptz default now());
-create table correction_reviews (correction_id uuid references corrections, reviewer_id uuid references profiles, decision text, comment text, created_at timestamptz default now(), primary key (correction_id, reviewer_id));
-create table keep_votes (question_id text not null, user_id uuid references profiles, created_at timestamptz default now(), primary key (question_id, user_id));
-create table question_overrides (question_id text primary key, draft jsonb not null, updated_at timestamptz default now());
-```
-
-Checklist:
-
-- [ ] Supabase project + Auth (email/OAuth) replacing the `signUp` /
-      `signIn` / `signOut` / `getSessionUser` functions — keep their
-      `{ ok, error }` shapes so components don't change.
-- [ ] RLS: public read; authors can insert; no self-review enforced by
-      policy (`reviewer_id <> author_id` via join) as well as UI.
-- [ ] Threshold transitions (`pending` → `approved`) in a Postgres
-      function or Edge Function triggered on review insert — never trust
-      client-computed counts.
-- [ ] Rate limits: submissions/day, reports/day per user (abuse brake).
-- [ ] Migrate `NEXT_PUBLIC_*` Supabase keys via `.env.local` (client-safe
-      anon key only).
-- [ ] Optional: reputation — weight reviews by approved-submission count
-      once the community is large enough for it to matter.
-
-Until then, everything works offline, per device — and the review
-discipline (3 approvals, attributed actions, public queues) is already
-the real product behavior.
+Still on the ideas list: reputation — weighting reviews by
+approved-submission count once the community is large enough for it to
+matter.

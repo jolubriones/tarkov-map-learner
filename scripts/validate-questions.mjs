@@ -12,16 +12,10 @@
  * TypeScript compiler (no new dependencies). Every exported array is
  * treated as a question bank and validated.
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { existsSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-const require = createRequire(import.meta.url);
-const ts = require('typescript');
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+import { ROOT, transpileFiles } from './transpile.mjs';
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 const DIFFICULTIES = ['essential', 'enlightened', 'sherpa', 'immortal'];
 const IMAGE_TIMEOUT_MS = 10000;
@@ -31,22 +25,18 @@ const SKIP_IMAGES =
 
 /** Transpile + load every array exported from src/lib/mockData.ts. */
 function loadBanks() {
-  const tmp = mkdtempSync(join(tmpdir(), 'qbank-'));
+  const t = transpileFiles(
+    [
+      ['src/lib/types.ts', 'types.js', []],
+      ['src/lib/mockData.ts', 'mockData.js', []],
+    ],
+    'qbank-'
+  );
   try {
-    for (const name of ['types', 'mockData']) {
-      const src = readFileSync(join(ROOT, 'src', 'lib', `${name}.ts`), 'utf8');
-      const js = ts.transpileModule(src, {
-        compilerOptions: {
-          module: ts.ModuleKind.CommonJS,
-          target: ts.ScriptTarget.ES2020,
-        },
-      }).outputText;
-      writeFileSync(join(tmp, `${name}.js`), js);
-    }
-    const mod = require(join(tmp, 'mockData.js'));
+    const mod = t.require('mockData.js');
     return Object.entries(mod).filter(([, value]) => Array.isArray(value));
   } finally {
-    rmSync(tmp, { recursive: true, force: true });
+    t.cleanup();
   }
 }
 

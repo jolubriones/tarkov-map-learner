@@ -126,6 +126,14 @@ export function useAsyncAction(): {
   return { busy, run };
 }
 
+/**
+ * Failure result for "the backend singleton hasn't resolved yet" call
+ * sites — reachable only when a user acts within milliseconds of load.
+ */
+export function backendNotReady(): { ok: false; error: string } {
+  return { ok: false, error: 'Still loading — try again in a moment.' };
+}
+
 // ---------------------------------------------------------------------------
 // Queries (all module-scope fetchers — stable for useBackendQuery).
 // ---------------------------------------------------------------------------

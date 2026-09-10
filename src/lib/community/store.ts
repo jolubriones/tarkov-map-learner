@@ -14,7 +14,7 @@ import {
   type ReportReason,
   type Review,
   type Submission,
-  type SubmitResult,
+  type IdResult,
 } from './types';
 import { draftToQuestion, findDuplicateHits, isDraftValid } from './validation';
 import { isDifficulty } from './difficulty';
@@ -58,7 +58,7 @@ const listeners = new Set<Listener>();
 let cached: CommunityState | null = null;
 let storageHooked = false;
 
-export function emptyState(): CommunityState {
+function emptyState(): CommunityState {
   return {
     version: COMMUNITY_STATE_VERSION,
     users: [],
@@ -521,7 +521,7 @@ export function findDuplicates(
 // Actions — submit / review / report / fix
 // ---------------------------------------------------------------------------
 
-export function submitQuestion(draft: QuestionDraft): SubmitResult {
+export function submitQuestion(draft: QuestionDraft): IdResult {
   const state = load();
   const user = requireUser(state);
   if (!user) return { ok: false, error: 'Sign in to submit a question.' };
@@ -684,7 +684,7 @@ export function proposeCorrection(
   questionId: string,
   draft: QuestionDraft,
   reason: string
-): SubmitResult {
+): IdResult {
   const state = load();
   const user = requireUser(state);
   if (!user) return { ok: false, error: 'Sign in to propose a fix.' };

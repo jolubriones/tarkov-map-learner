@@ -1,7 +1,7 @@
 import { COMMUNITY_CONFIG as C } from './config';
 import { DIFFICULTY_ORDER } from './difficulty';
 import { MAP_IDS } from './maps';
-import type { DuplicateHit, QuestionDraft } from './types';
+import type { DuplicateHit, LiveQuestion, QuestionDraft, Submission } from './types';
 import type { Question, QuestionType } from '@/lib/types';
 
 /**
@@ -310,4 +310,32 @@ export function findDuplicateHits(
     }
   }
   return hits.slice(0, 5);
+}
+
+/**
+ * Duplicate check over the two review-relevant pools (live + pending) —
+ * the shared query behind the form's warning and the review card's.
+ */
+export function findPoolDuplicates(
+  live: LiveQuestion[],
+  pending: Submission[],
+  prompt: string,
+  excludeId?: string
+): DuplicateHit[] {
+  return findDuplicateHits(
+    [
+      ...live.map((l) => ({
+        questionId: l.question.id,
+        prompt: l.question.prompt,
+        source: l.source,
+      })),
+      ...pending.map((s) => ({
+        questionId: s.id,
+        prompt: s.draft.prompt,
+        source: 'pending' as const,
+      })),
+    ],
+    prompt,
+    excludeId
+  );
 }

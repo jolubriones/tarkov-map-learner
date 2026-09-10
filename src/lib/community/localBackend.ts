@@ -3,6 +3,7 @@ import type {
   CommunityUser,
   CorrectionProposal,
   FlaggedItem,
+  IdResult,
   LiveQuestion,
   QuestionDraft,
   QuestionReport,
@@ -12,7 +13,7 @@ import type {
 } from './types';
 import type { EloResult, EloState } from './elo';
 import type { QuestionDifficulty } from '@/lib/types';
-import type { AuthResult, CommunityBackend, IdResult, UrlResult } from './backend';
+import type { AuthResult, CommunityBackend, UrlResult } from './backend';
 import {
   actionableReviewCount,
   editCorrection,
