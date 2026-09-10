@@ -17,6 +17,8 @@ config change, not a code change.
 | Donate (icon) | `<DonateButton variant="icon" />` | Drill header, next to mute |
 | Donate (CTA) | `<DonateButton variant="cta" />` | Game-over screen, below Try Again |
 | Donate (link) | `<DonateButton variant="link" />` | App footer (`src/components/AppFooter.tsx`) |
+| Supporter badge | `<DonorBadge />` | Drill info bar (active donors only) |
+| Redeem dialog | `<DonorRedeem />` | Footer (once donations are on) |
 
 The ad-slot registry lives in `src/lib/monetization.ts` (`AD_SLOTS`). Each
 slot reserves a fixed `minHeight` so creatives never shift the drill UI (CLS).
@@ -43,6 +45,44 @@ NEXT_PUBLIC_DONATION_MESSAGE=Support this project # optional label
 Works with Ko-fi, Patreon, Buy Me a Coffee, GitHub Sponsors, PayPal.me —
 anything URL-based. All three `DonateButton` placements light up at once.
 
+## Donor perks: $5+ → 1 year ad-free
+
+Supporters who donate $5 or more can redeem a code for one year without ads:
+
+1. Donor gives via `NEXT_PUBLIC_DONATION_URL`.
+2. They receive a supporter code (manual for now — email it, or use your
+   platform's post-donation message / Discord role).
+3. They open the footer "Supporter code" link, redeem, and `<AdSlot />`
+   hides every placement until the entitlement expires.
+4. An amber "Supporter" pill appears in the drill info bar.
+
+The rules live in `src/lib/donor.ts`:
+
+- `AD_FREE_THRESHOLD_USD = 5`, `AD_FREE_DURATION_DAYS = 365`
+- Entitlements persist in localStorage and self-expire (expired/corrupt
+  entries are cleared on read). `useDonorStatus()` keeps the badge and
+  ad slots reactive across tabs.
+
+### Test codes (dev only)
+
+```bash
+NEXT_PUBLIC_DONOR_CODES=FRIEND:10,SMALL:2 npm run dev
+```
+
+Format is `CODE[:USD]` (amount defaults to $5). `FRIEND` redeems ad-free;
+`SMALL` demonstrates the under-$5 rejection. These codes ship in the
+client bundle — never treat them as real verification.
+
+### Going live (checklist)
+
+- [ ] Replace the `verifyDonorCode()` stub with a server-side check
+      (Ko-fi verification API, Patreon API, or your own backend issuing
+      single-use codes). Its `{ valid, donatedUsd }` return shape is the
+      contract — only that function changes.
+- [ ] Decide code distribution (receipt email, thank-you page, Discord).
+- [ ] Keep the $5 / 1-year promise in sync: threshold + duration consts in
+      `src/lib/donor.ts`, perk note via `NEXT_PUBLIC_DONATION_PERK_MESSAGE`.
+
 ## Option B — Google AdSense
 
 1. Get approved and find your publisher ID (`ca-pub-...`) plus one ad-unit
@@ -63,6 +103,7 @@ Notes:
   never blocks the drill. Identical script URLs are deduped automatically.
 - The `game-over` slot only mounts when the game-over screen shows, which
   keeps ad requests tied to a natural content break.
+- Active donors never see these placements (`<AdSlot />` returns `null`).
 
 ## Option C — Custom / house ads (no ad network)
 
@@ -108,7 +149,11 @@ With `custom`, slots without children render nothing.
 ## File map
 
 - `src/lib/monetization.ts` — env-driven config + slot registry
+- `src/lib/donor.ts` — donor entitlements, redeem flow, verify stub
+- `src/hooks/useDonorStatus.ts` — reactive donor-status hook
 - `src/components/ads/AdSlot.tsx` — ad placement component (provider logic)
 - `src/components/DonateButton.tsx` — donation entry points
+- `src/components/DonorBadge.tsx` — supporter pill for active donors
+- `src/components/DonorRedeem.tsx` — supporter-code redeem/manage dialog
 - `src/components/AppFooter.tsx` — footer with conditional support link
 - `.env.example` — all variables with defaults

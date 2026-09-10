@@ -6,6 +6,7 @@ import { CUSTOMS_DRILL_QUESTIONS } from '@/lib/mockData';
 import AnswerFeedback from '@/components/AnswerFeedback';
 import AdSlot from '@/components/ads/AdSlot';
 import DonateButton from '@/components/DonateButton';
+import DonorBadge from '@/components/DonorBadge';
 import {
   playCorrectSound,
   playWrongSound,
@@ -160,9 +161,13 @@ export default function Home() {
 
         {/* Game Info Bar */}
         <div className="flex items-center justify-between gap-4 mb-4">
-          <span className="text-sm text-zinc-500">
-            Q {currentIndex + 1} of {totalQuestions}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-zinc-500">
+              Q {currentIndex + 1} of {totalQuestions}
+            </span>
+            {/* Renders only while a donor entitlement is active */}
+            <DonorBadge />
+          </div>
           <span className="text-sm text-zinc-500">
             Games: {gamesPlayed} | Best: {bestStreak}
           </span>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import Script from 'next/script';
 import { AD_SLOTS, monetizationConfig } from '@/lib/monetization';
+import { useDonorStatus } from '@/hooks/useDonorStatus';
 
 declare global {
   interface Window {
@@ -27,6 +28,7 @@ interface AdSlotProps {
  *
  * - Renders `null` (zero DOM / layout impact) until ads are enabled.
  * - Reserves `minHeight` space when active so ads don't shift the drill UI.
+ * - Donors with an active $5+ entitlement always browse ad-free.
  * - Supports Google AdSense today; `custom` renders first-party creative
  *   passed as `children`. New providers plug in here without touching pages.
  */
@@ -35,6 +37,7 @@ export default function AdSlot({ slot, className = '', children }: AdSlotProps) 
   const { enabled, provider, adsenseClient, slotIds, showPlaceholders } =
     monetizationConfig.ads;
   const providerSlotId = slotConfig ? (slotIds[slotConfig.id] ?? null) : null;
+  const donor = useDonorStatus();
   // Guard against double ad requests (StrictMode mounts effects twice in dev).
   const pushedRef = useRef(false);
 
@@ -63,6 +66,9 @@ export default function AdSlot({ slot, className = '', children }: AdSlotProps) 
     }
     return null;
   }
+
+  // Donors ($5+, unexpired entitlement) browse ad-free.
+  if (donor) return null;
 
   // Dev preview: dashed boxes showing where ads will land.
   if (showPlaceholders && (!enabled || provider === 'none')) {

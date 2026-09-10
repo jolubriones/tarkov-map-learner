@@ -9,6 +9,8 @@
  * for the full variable list.
  */
 
+import { AD_FREE_THRESHOLD_USD } from './donor';
+
 export type AdProvider = 'adsense' | 'custom' | 'none';
 
 export type AdFormat = 'banner' | 'rectangle' | 'responsive';
@@ -67,6 +69,8 @@ export interface DonationsConfig {
   platform: string;
   /** Short call-to-action label for the donate button. */
   message: string;
+  /** Perk note shown under the donate button (donor ad-free promise). */
+  perkMessage: string;
 }
 
 export interface MonetizationConfig {
@@ -107,5 +111,8 @@ export const monetizationConfig: MonetizationConfig = {
     platform: readEnv('NEXT_PUBLIC_DONATION_PLATFORM') ?? 'Ko-fi',
     message:
       readEnv('NEXT_PUBLIC_DONATION_MESSAGE') ?? 'Support Tarkov Map Learner',
+    perkMessage:
+      readEnv('NEXT_PUBLIC_DONATION_PERK_MESSAGE') ??
+      `Donate $${AD_FREE_THRESHOLD_USD} or more for 1 year of ad-free drills`,
   },
 };
