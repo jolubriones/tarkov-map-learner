@@ -153,6 +153,10 @@ check('submit: gated + validated', () => {
     store.submitQuestion({ ...DRAFT, type: 'landmark_mc', imageUrl: 'https://example.com/photo.jpg' }).ok,
     true
   );
+  assert.equal(
+    store.submitQuestion({ ...DRAFT, type: 'landmark_mc', imageUrl: '/images/customs/c-05.jpg' }).ok,
+    true
+  ); // self-hosted refs stay valid
   const res = store.submitQuestion(DRAFT);
   assert.equal(res.ok, true);
   globalThis.__subId = res.id;

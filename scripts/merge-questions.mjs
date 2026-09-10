@@ -63,15 +63,37 @@ function usage(exit = 0) {
 }
 
 const argv = process.argv.slice(2);
-const manifestPath = argv.find((a) => !a.startsWith('--'));
 const DRY_RUN = argv.includes('--dry-run');
-const flagValue = (name) => {
-  const i = argv.indexOf(name);
-  return i !== -1 && argv[i + 1] ? argv[i + 1] : null;
-};
-if (!manifestPath) usage(1);
-const BANK_PATH = join(ROOT, flagValue('--bank') ?? 'src/lib/mockData.ts');
-const PUBLIC_DIR = join(ROOT, flagValue('--public') ?? 'public');
+function parseArgs() {
+  let manifestPath = null;
+  let bank = 'src/lib/mockData.ts';
+  let publicDir = 'public';
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === '--bank' || arg === '--public') {
+      const value = argv[i + 1];
+      if (!value || value.startsWith('--')) usage(1);
+      if (arg === '--bank') bank = value;
+      else publicDir = value;
+      i++;
+    } else if (arg === '--dry-run') {
+      continue;
+    } else if (arg.startsWith('--')) {
+      usage(1);
+    } else if (!manifestPath) {
+      manifestPath = arg;
+    } else {
+      usage(1);
+    }
+  }
+  if (!manifestPath) usage(1);
+  return { manifestPath, bank, publicDir };
+}
+const { manifestPath, bank, publicDir } = parseArgs();
+// --bank/--public are escape hatches for dry E2E runs; the id/prompt scan
+// below always reads the real src bank, so keep copies fresh.
+const BANK_PATH = join(ROOT, bank);
+const PUBLIC_DIR = join(ROOT, publicDir);
 
 /** Transpile the app's own validation module (single source of truth). */
 function loadValidation() {
@@ -180,8 +202,11 @@ function hashPublicImages() {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const full = join(dir, entry.name);
       if (entry.isDirectory()) walk(full);
-      else if (entry.isFile() && sniffImageExt(readFileSync(full))) {
-        hashes.set(sha256(readFileSync(full)), `/${relative(PUBLIC_DIR, full)}`);
+      else if (entry.isFile()) {
+        const bytes = readFileSync(full);
+        if (sniffImageExt(bytes)) {
+          hashes.set(sha256(bytes), `/${relative(PUBLIC_DIR, full).replace(/\\/g, '/')}`);
+        }
       }
     }
   };
@@ -201,6 +226,13 @@ async function main() {
     console.error('not a question-export manifest (bad format or missing questions[])');
     process.exit(1);
   }
+  if (!DRY_RUN) {
+    const source = existsSync(BANK_PATH) ? readFileSync(BANK_PATH, 'utf8') : '';
+    if (!source.includes('];')) {
+      console.error(`bank file has no appendable array: ${BANK_PATH}`);
+      process.exit(1);
+    }
+  }
   const { validation, bank } = loadValidation();
   const bankPrompts = new Set(bank.map((q) => normalizePrompt(q.prompt)));
   const imageHashes = hashPublicImages();
@@ -212,15 +244,21 @@ async function main() {
 
   const merged = [];
   const skipped = [];
+  let pendingImages = 0;
   for (const [index, entry] of manifest.questions.entries()) {
-    const tag = entry.submissionId ?? `#${index}`;
-    const draft = entry.draft;
+    const tag = entry?.submissionId ?? `#${index}`;
+    const draft = entry?.draft;
     if (!draft || typeof draft !== 'object') {
       skipped.push(`${tag}: entry has no draft`);
       continue;
     }
-    const errors = validation.validateDraft(draft);
-    const problems = Object.values(errors);
+    let problems;
+    try {
+      problems = Object.values(validation.validateDraft(draft));
+    } catch {
+      skipped.push(`${tag}: draft failed validation (malformed fields)`);
+      continue;
+    }
     if (problems.length > 0) {
       skipped.push(`${tag}: invalid draft — ${problems.join('; ')}`);
       continue;
@@ -256,6 +294,7 @@ async function main() {
         imageUrl = imageHashes.get(sha256(bytes)) ?? ref;
       } else {
         if (DRY_RUN) {
+          pendingImages++;
           console.log(`  would fetch image for ${tag}: ${ref.slice(0, 80)}`);
           continue;
         }
@@ -282,7 +321,8 @@ async function main() {
           mkdirSync(dirname(dest), { recursive: true });
           try {
             writeFileSync(dest, bytes, { flag: 'wx' });
-          } catch {
+          } catch (error) {
+            if (error?.code !== 'EEXIST') throw error;
             skipped.push(`${tag}: ${relPath} already exists — clean up and retry`);
             continue;
           }
@@ -300,7 +340,10 @@ async function main() {
 
   for (const note of skipped) console.log(`  - skip: ${note}`);
   if (DRY_RUN) {
-    console.log(`\ndry run: ${merged.length} would merge, ${skipped.length} skipped, nothing written`);
+    const imageNote = pendingImages > 0 ? ` (${pendingImages} need image fetch)` : '';
+    console.log(
+      `\ndry run: ${merged.length} would merge${imageNote}, ${skipped.length} skipped, nothing written`
+    );
     return;
   }
   if (merged.length > 0) {

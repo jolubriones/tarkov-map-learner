@@ -103,9 +103,10 @@ export function validateDraft(draft: QuestionDraft): DraftErrors {
     errors.spawnLocation = 'Extract questions need a spawn location (e.g. “Crossroads / Trailer Park”).';
   }
 
-  if (draft.type === 'landmark_mc' && !draft.imageUrl?.trim()) {
+  const imageRef = draft.imageUrl?.trim();
+  if (draft.type === 'landmark_mc' && !imageRef) {
     errors.imageUrl = 'Landmark questions need a photo — the picture is the question.';
-  } else if (draft.imageUrl?.trim() && !isHttpUrl(draft.imageUrl.trim())) {
+  } else if (imageRef && !isHttpUrl(imageRef) && !imageRef.startsWith('/images/')) {
     errors.imageUrl = 'Image must be a full http(s) URL, or leave it blank.';
   }
 
