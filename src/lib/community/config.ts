@@ -22,6 +22,8 @@ export const COMMUNITY_CONFIG = {
   keepVotesToClearFlag: 3,
   /** Open reports needed before a question shows as flagged. */
   reportsToFlag: 1,
+  /** Max pending submissions per player (spam throttle, both backends). */
+  maxPendingSubmissions: 10,
 
   /** Option-count bounds enforced by the submission template. */
   minOptions: 2,

@@ -566,6 +566,15 @@ export function submitQuestion(draft: QuestionDraft): SubmitResult {
   if (!isDraftValid(draft)) {
     return { ok: false, error: 'This question still has errors — fix them and resubmit.' };
   }
+  const ownPending = state.submissions.filter(
+    (s) => s.authorId === user.id && s.status === 'pending'
+  ).length;
+  if (ownPending >= C.maxPendingSubmissions) {
+    return {
+      ok: false,
+      error: `You already have ${C.maxPendingSubmissions} questions awaiting review — withdraw one or wait for decisions.`,
+    };
+  }
   const id = newId('u');
   const submission: Submission = {
     id,

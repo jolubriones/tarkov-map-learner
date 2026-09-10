@@ -40,6 +40,20 @@ The built-in bank lives in `src/lib/mockData.ts` and is validated before
 every build. See [`docs/questions.md`](docs/questions.md) to add or edit
 built-in questions.
 
+## Community backend (local now, hosted when ready)
+
+The community runs behind one `CommunityBackend` contract with two
+implementations: a device-local adapter (default — demo accounts, seeds,
+offline) and a Supabase adapter (real accounts, public queues,
+server-side consensus + ELO). Setting `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` switches the app to hosted; unset, it
+runs exactly as today. See [`docs/backend.md`](docs/backend.md) for the
+seam, the schema (`supabase/migrations/`), and the activation checklist.
+
+| Script | What it does |
+| ------ | ------------ |
+| `npm run test:backend` | Contract suite: same flow vs every adapter (hosted runs when creds exist) |
+
 ## Monetization (ads & donations)
 
 The app is monetization-ready: ad slots and donation buttons are placed but

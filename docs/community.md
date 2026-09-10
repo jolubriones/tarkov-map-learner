@@ -5,6 +5,10 @@ guided template, peers review them into the drill pool, and the same peers
 police quality afterward via reports and corrections. No moderators in the
 middle — the pool grows and heals itself.
 
+> **Backend note:** this doc describes the rules and flows, which are
+> identical on both backends. The hosted implementation (schema, RLS,
+> RPCs, activation) lives in [`backend.md`](backend.md).
+
 ## The loop
 
 ```

@@ -551,7 +551,7 @@ create policy questions_read on questions for select using (true);
 create policy questions_insert on questions for insert to authenticated
   with check (
     auth.uid() = author_id
-    and (select count(*) from questions where author_id = auth.uid() and status = 'pending') < 10
+    and (select count(*) from questions where author_id = auth.uid() and status = 'pending') < 10 -- mirrors maxPendingSubmissions
   );
 create policy questions_update_own on questions for update to authenticated
   using (auth.uid() = author_id and status = 'pending')

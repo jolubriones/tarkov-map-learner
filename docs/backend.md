@@ -19,6 +19,14 @@ Selection lives in `backendKind()`: both `NEXT_PUBLIC_SUPABASE_URL` and
 `NEXT_PUBLIC_SUPABASE_ANON_KEY` set → hosted, otherwise local. The app
 never half-migrates — one backend serves everything per deployment.
 
+Status: the contract, the local adapter, and the full Supabase adapter
+(`supabaseBackend.ts` — real queries, RLS-mapped errors, Storage
+uploads, `answer_rated` RPC) are implemented; UI consumer migration
+lands next (components still call the local store directly). Parity is
+asserted by `npm run test:backend`, which runs the identical flow
+against every adapter — hosted executes whenever credentials and the
+client package are present, and skips otherwise.
+
 ## Schema
 
 `supabase/migrations/001_community.sql` is the whole hosted backend:
@@ -43,11 +51,18 @@ Rules enforced where they belong:
 
 1. Create a free Supabase project.
 2. Paste `supabase/migrations/001_community.sql` into the SQL editor, run.
-3. Add the two `NEXT_PUBLIC_*` values to `.env.local` (see `.env.example`).
-4. `npm install` (pulls the Supabase client) and restart dev.
-5. Insert your user id into `maintainers` after first signup (SQL in the
+3. Auth → Sign In / Up → **turn email confirmation OFF** (the app
+   signs users in immediately after signup; with confirmation on,
+   signup returns "confirm your email" instead of a session).
+4. Add the two `NEXT_PUBLIC_*` values to `.env.local` (see `.env.example`).
+5. `npm i @supabase/supabase-js` and restart dev (lazy-loaded — the app
+   tells you if it's missing).
+6. Insert your user id into `maintainers` after first signup (SQL in the
    migration comments).
-6. Run the smoke checklist in `docs/launch.md` (two accounts, real flow).
+7. `NEXT_PUBLIC_SUPABASE_URL=... NEXT_PUBLIC_SUPABASE_ANON_KEY=... npm run
+   test:backend` — the hosted half of the contract suite, against real infra.
+8. Smoke the app with two accounts (submit → approve → drill → report →
+   fix → ELO persists across devices).
 
 Until then the app runs exactly as today — every change so far is
 additive. Deleting the local adapter is a scheduled follow-up *after*

@@ -9,6 +9,7 @@
     "validate": "node scripts/validate-questions.mjs",
     "merge": "node scripts/merge-questions.mjs",
     "test:community": "node scripts/test-community.mjs",
+    "test:backend": "node scripts/test-backend.mjs",
     "start": "next start",
     "lint": "eslint"
   },
