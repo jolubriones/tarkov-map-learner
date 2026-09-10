@@ -1,11 +1,23 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import type { QuestionDifficulty } from '@/lib/types';
 import { DIFFICULTY_META } from '@/lib/community/difficulty';
 
 /** Centered modal shell (backdrop click + Escape to close). */
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea, input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * True when this dialog is the topmost open modal. Modals stack (sign-in
+ * opens over the report dialog), and only the topmost may own Escape/Tab —
+ * otherwise one keypress drives every layer at once.
+ */
+function isTopmostModal(node: HTMLElement): boolean {
+  const modals = document.querySelectorAll('[data-modal]');
+  return modals.length === 0 || modals[modals.length - 1] === node;
+}
 export function Modal({
   label,
   onClose,
@@ -17,12 +29,49 @@ export function Modal({
   children: ReactNode;
   wide?: boolean;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    // Respect in-dialog autofocus (e.g. the sign-in username field): only
+    // move focus when it starts outside the dialog.
+    if (!dialog.contains(document.activeElement)) {
+      (dialog.querySelector<HTMLElement>(FOCUSABLE) ?? dialog).focus();
+    }
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (!isTopmostModal(dialog)) return;
+      if (event.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      // Focus trap: Tab cycles inside the dialog, never behind it.
+      const items = [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)];
+      if (items.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      // Return focus where it came from (a control that has since
+      // unmounted is simply skipped).
+      if (previouslyFocused && document.contains(previouslyFocused)) {
+        previouslyFocused.focus();
+      }
+    };
   }, [onClose]);
 
   return (
@@ -32,6 +81,9 @@ export function Modal({
       role="presentation"
     >
       <div
+        ref={dialogRef}
+        data-modal
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={label}

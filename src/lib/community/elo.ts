@@ -86,7 +86,7 @@ export interface EloResult {
   overall: OverallRating;
 }
 
-const STORAGE_KEY = 'tarkov-map-learner-storage_elo';
+export const ELO_STORAGE_KEY = 'tarkov-map-learner-storage_elo';
 
 function sanitizeRating(value: unknown): number {
   const n = typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : NaN;
@@ -187,6 +187,52 @@ export function overallRating(state: EloState): OverallRating {
   return { rating: Math.round(weighted / weights), mapsPlayed: played.length };
 }
 
+/**
+ * Cross-tab merge: another tab wrote ELO while we were open. Per map, the
+ * entry with more rated answers wins (further along the same journey);
+ * ties break toward the higher rating, then the incoming copy. Streaks
+ * take the max — a background tab's old write must never nuke the live
+ * streak being extended in this one. Convergent: merging A←B and B←A
+ * lands on the same state, so tabs settle instead of fighting.
+ */
+export function mergeEloStates(local: EloState, incoming: EloState): EloState {
+  const safeIncoming: EloState = {
+    ratings:
+      incoming && typeof incoming.ratings === 'object' && incoming.ratings !== null
+        ? incoming.ratings
+        : {},
+    winStreak: sanitizeCount(incoming?.winStreak),
+  };
+  const ids = new Set([
+    ...Object.keys(local.ratings ?? {}),
+    ...Object.keys(safeIncoming.ratings),
+  ]);
+  const ratings: Record<string, MapRating> = {};
+  for (const id of ids) {
+    const a = mapRatingFor(local, id);
+    const b = mapRatingFor(safeIncoming, id);
+    ratings[id] =
+      b.answered > a.answered || (b.answered === a.answered && b.rating >= a.rating) ? b : a;
+  }
+  return {
+    ratings,
+    winStreak: Math.max(sanitizeCount(local.winStreak), safeIncoming.winStreak),
+    scale: ELO_SCALE,
+  };
+}
+
+/** Value equality for ELO states (ignores key order and scale metadata). */
+export function sameEloState(a: EloState, b: EloState): boolean {
+  if (sanitizeCount(a.winStreak) !== sanitizeCount(b.winStreak)) return false;
+  const ids = new Set([...Object.keys(a.ratings ?? {}), ...Object.keys(b.ratings ?? {})]);
+  for (const id of ids) {
+    const ra = mapRatingFor(a, id);
+    const rb = mapRatingFor(b, id);
+    if (ra.rating !== rb.rating || ra.answered !== rb.answered) return false;
+  }
+  return true;
+}
+
 /** Lifetime rated answers across every map. */
 export function totalAnswered(state: EloState): number {
   return Object.values(state.ratings).reduce((sum, r) => sum + sanitizeCount(r.answered), 0);
@@ -231,7 +277,7 @@ function freshState(): EloState {
 export function readElo(): EloState {
   if (typeof window === 'undefined') return freshState();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(ELO_STORAGE_KEY);
     if (!raw) return freshState();
     const stored = JSON.parse(raw) as
       | { ratings?: unknown; rating?: unknown; answered?: unknown; winStreak?: unknown; scale?: unknown }
@@ -266,7 +312,7 @@ export function writeElo(state: EloState): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(
-      STORAGE_KEY,
+      ELO_STORAGE_KEY,
       JSON.stringify({ ratings: state.ratings, winStreak: state.winStreak, scale: ELO_SCALE })
     );
   } catch {

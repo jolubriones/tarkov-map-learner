@@ -378,6 +378,23 @@ check('elo: per-map ratings, overall, streaks, migration', () => {
   // Scale-1 flat shifts +200 first.
   backing.set('tarkov-map-learner-storage_elo', JSON.stringify({ rating: 900, answered: 20 }));
   assert.equal(elo.readElo().ratings.woods.rating, 1100);
+  // Cross-tab merge: more answers wins per map, streaks take the max.
+  const tabA = { ratings: { customs: { rating: 900, answered: 10 } }, winStreak: 5 };
+  const tabB = {
+    ratings: { customs: { rating: 850, answered: 4 }, woods: { rating: 1200, answered: 6 } },
+    winStreak: 2,
+  };
+  const merged = elo.mergeEloStates(tabA, tabB);
+  assert.deepEqual(merged.ratings.customs, { rating: 900, answered: 10 });
+  assert.deepEqual(merged.ratings.woods, { rating: 1200, answered: 6 });
+  assert.equal(merged.winStreak, 5);
+  assert.equal(elo.sameEloState(tabA, merged), false);
+  assert.equal(elo.sameEloState(merged, JSON.parse(JSON.stringify(merged))), true);
+  // Convergent: both merge directions land on the same state.
+  assert.ok(elo.sameEloState(elo.mergeEloStates(tabA, tabB), elo.mergeEloStates(tabB, tabA)));
+  // Malformed cross-tab writes degrade to our own state, never crash.
+  assert.ok(elo.sameEloState(elo.mergeEloStates(tabA, null), tabA));
+
   // Scale-3 passes through untouched.
   backing.set(
     'tarkov-map-learner-storage_elo',

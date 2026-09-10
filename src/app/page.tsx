@@ -29,12 +29,15 @@ import { DifficultyBadge, EmptyState } from '@/components/community/ui';
 import { useCommunity, useLiveQuestions } from '@/hooks/useCommunity';
 import { actionableReviewCount } from '@/lib/community/store';
 import {
+  ELO_STORAGE_KEY,
   applyEloAnswer,
   mapRatingFor,
+  mergeEloStates,
   nextRankProgress,
   overallRating,
   rankForRating,
   readElo,
+  sameEloState,
   writeElo,
   type EloState,
 } from '@/lib/community/elo';
@@ -253,6 +256,27 @@ export default function Home() {
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [view]);
+
+  // Cross-tab ELO sync: another tab's answers merge into this tab instead
+  // of being overwritten by our next answer (same pattern as the store's
+  // storage hook). The equality bail is load-bearing: without it, two open
+  // tabs would ping-pong identical writes forever.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== ELO_STORAGE_KEY || !event.newValue) return;
+      try {
+        const incoming = JSON.parse(event.newValue) as EloState;
+        setElo((prev) => {
+          const next = mergeEloStates(prev, incoming);
+          return sameEloState(prev, next) ? prev : next;
+        });
+      } catch {
+        // Malformed cross-tab write — keep our own state.
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   // New filter, fresh run (ratings + streak carry over — skill is skill).
   const resetRun = () => {

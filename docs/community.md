@@ -74,6 +74,9 @@ floored at 100 per map):
 - **Flagged questions pause rating**: while a question is under
   community review, answers still cost lives and build streaks, but
   move no ELO — the app never bets your rating on a disputed answer.
+- **Tabs share the rating**: a second tab's answers merge in per map
+  (more answers wins; streaks take the max) instead of being
+  overwritten — open drills side by side and neither loses progress.
 
 Drills filter by bin and by map (multi-select chips, persisted); a map
 pick with no questions yet renders an empty panel with a shortcut to
