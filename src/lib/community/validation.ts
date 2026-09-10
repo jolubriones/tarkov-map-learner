@@ -1,7 +1,7 @@
 import { COMMUNITY_CONFIG as C } from './config';
 import { DIFFICULTY_ORDER } from './difficulty';
 import { MAP_IDS } from './maps';
-import type { QuestionDraft } from './types';
+import type { DuplicateHit, QuestionDraft } from './types';
 import type { Question, QuestionType } from '@/lib/types';
 
 /**
@@ -106,7 +106,12 @@ export function validateDraft(draft: QuestionDraft): DraftErrors {
   const imageRef = draft.imageUrl?.trim();
   if (draft.type === 'landmark_mc' && !imageRef) {
     errors.imageUrl = 'Landmark questions need a photo — the picture is the question.';
-  } else if (imageRef && !isHttpUrl(imageRef) && !imageRef.startsWith('/images/')) {
+  } else if (
+    imageRef &&
+    !isHttpUrl(imageRef) &&
+    !imageRef.startsWith('/images/') &&
+    !imageRef.startsWith('data:image/')
+  ) {
     errors.imageUrl = 'Image must be a full http(s) URL, or leave it blank.';
   }
 
@@ -257,4 +262,52 @@ export function draftsEqual(a: QuestionDraft, b: QuestionDraft): boolean {
       tip: (d.tip ?? '').trim(),
     });
   return norm(a) === norm(b);
+}
+
+function promptTokens(prompt: string): string[] {
+  return prompt
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/**
+ * Duplicate detection over explicit candidates - the backend-agnostic
+ * core (local builds candidates from state, hosted from query results).
+ * Exact normalized match, containment (24+ chars), or 80%+ token overlap.
+ */
+export function findDuplicateHits(
+  candidates: DuplicateHit[],
+  prompt: string,
+  excludeId?: string
+): DuplicateHit[] {
+  const norm = promptTokens(prompt).join(' ');
+  if (norm.length < 12) return [];
+  const hits: DuplicateHit[] = [];
+  const aTokens = new Set(promptTokens(prompt));
+  for (const c of candidates) {
+    if (c.questionId === excludeId) continue;
+    const bNorm = promptTokens(c.prompt).join(' ');
+    if (!bNorm || bNorm.length < 12) continue;
+    if (bNorm === norm) {
+      hits.push(c);
+      continue;
+    }
+    const longer = bNorm.length >= norm.length ? bNorm : norm;
+    const shorter = bNorm.length >= norm.length ? norm : bNorm;
+    if (shorter.length >= 24 && longer.includes(shorter)) {
+      hits.push(c);
+      continue;
+    }
+    const bTokens = new Set(promptTokens(c.prompt));
+    if (aTokens.size >= 6 && bTokens.size >= 6) {
+      let inter = 0;
+      for (const tok of aTokens) if (bTokens.has(tok)) inter++;
+      const union = aTokens.size + bTokens.size - inter;
+      if (union > 0 && inter / union >= 0.8) hits.push(c);
+    }
+  }
+  return hits.slice(0, 5);
 }

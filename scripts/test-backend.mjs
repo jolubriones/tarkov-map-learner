@@ -162,6 +162,11 @@ async function runContract(create, label, suffix) {
     assert.equal(await b.getSessionUser(), null);
   });
 
+  await check(`[${label}] demo account is local-only`, async () => {
+    assert.equal((await b.signInDemo()).ok, label === 'local');
+    await b.signOut();
+  });
+
   await check(`[${label}] auth: signup / duplicate / signin / bad password`, async () => {
     assert.equal((await signup('alice')).ok, true);
     assert.match((await signup('alice')).error ?? '', /taken|already/i);
@@ -194,6 +199,15 @@ async function runContract(create, label, suffix) {
     const live = await b.listLiveQuestions();
     const found = live.find((q) => q.question.id === liveId);
     assert.ok(found && found.source === 'community' && found.question.correctAnswer === 'ZB-1011');
+  });
+
+  await check(`[${label}] reviews given counts both queues`, async () => {
+    await signin('dave');
+    assert.equal(await b.countReviewsGiven(), 1);
+    await signin('alice');
+    assert.equal(await b.countReviewsGiven(), 0);
+    await b.signOut();
+    assert.equal(await b.countReviewsGiven(), 0);
   });
 
   await check(`[${label}] reject notes enforced, 3 rejections decline`, async () => {

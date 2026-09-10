@@ -175,3 +175,9 @@ export interface FlaggedItem {
   keepVotes: { userId: string; userName: string; createdAt: string }[];
   corrections: CorrectionProposal[];
 }
+
+export interface DuplicateHit {
+  questionId: string;
+  prompt: string;
+  source: 'official' | 'community' | 'pending';
+}

@@ -29,6 +29,7 @@ import {
   reviewCorrection,
   reviewSubmission,
   signIn,
+  signInDemo,
   signOut,
   signUp,
   submitQuestion,
@@ -81,6 +82,14 @@ export function createLocalBackend(): CommunityBackend {
       signOut();
     },
 
+    async signInDemo(): Promise<AuthResult> {
+      const result = signInDemo();
+      if (!result.ok) return result;
+      const user = sessionUser();
+      if (!user) return { ok: false, error: 'Demo sign-in succeeded but no session started.' };
+      return { ok: true, user };
+    },
+
     async listLiveQuestions(): Promise<LiveQuestion[]> {
       return getLiveQuestions(getState());
     },
@@ -113,6 +122,16 @@ export function createLocalBackend(): CommunityBackend {
       const user = sessionUser();
       if (!user) return [];
       return getState().reports.filter((r) => r.reporterId === user.id);
+    },
+
+    async countReviewsGiven(): Promise<number> {
+      const user = sessionUser();
+      if (!user) return 0;
+      const s = getState();
+      return (
+        s.submissions.filter((x) => x.reviews.some((r) => r.reviewerId === user.id)).length +
+        s.corrections.filter((x) => x.reviews.some((r) => r.reviewerId === user.id)).length
+      );
     },
 
     async actionableReviewCount(): Promise<number> {

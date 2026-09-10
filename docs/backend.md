@@ -19,13 +19,14 @@ Selection lives in `backendKind()`: both `NEXT_PUBLIC_SUPABASE_URL` and
 `NEXT_PUBLIC_SUPABASE_ANON_KEY` set → hosted, otherwise local. The app
 never half-migrates — one backend serves everything per deployment.
 
-Status: the contract, the local adapter, and the full Supabase adapter
-(`supabaseBackend.ts` — real queries, RLS-mapped errors, Storage
-uploads, `answer_rated` RPC) are implemented; UI consumer migration
-lands next (components still call the local store directly). Parity is
-asserted by `npm run test:backend`, which runs the identical flow
-against every adapter — hosted executes whenever credentials and the
-client package are present, and skips otherwise.
+Status: the contract, both adapters, and the UI migration are done —
+components talk only to `CommunityBackend` via the hooks in
+`src/hooks/useCommunity.ts` (the only direct store imports left are
+local-only export and pure counting helpers). Setting the env
+credentials cuts the whole app over at once. Parity is asserted by
+`npm run test:backend`, which runs the identical flow against every
+adapter — hosted executes whenever credentials and the client package
+are present, and skips otherwise.
 
 ## Schema
 

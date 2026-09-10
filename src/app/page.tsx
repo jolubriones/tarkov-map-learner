@@ -26,8 +26,8 @@ import SubmitPanel from '@/components/community/SubmitPanel';
 import ReviewQueue from '@/components/community/ReviewQueue';
 import GuideDialog, { type GuideSection } from '@/components/community/GuideDialog';
 import { DifficultyBadge, EmptyState } from '@/components/community/ui';
-import { useCommunity, useLiveQuestions } from '@/hooks/useCommunity';
-import { actionableReviewCount } from '@/lib/community/store';
+import { useBackend, useLivePool, useReviewCount, useSessionUser } from '@/hooks/useCommunity';
+import type { LiveQuestion } from '@/lib/community/types';
 import {
   ELO_STORAGE_KEY,
   applyEloAnswer,
@@ -56,6 +56,8 @@ import {
 
 const STORAGE_KEY = 'tarkov-map-learner-storage';
 const MAX_LIVES = 3;
+// Stable empty pool while the backend loads (avoids re-memoizing per render).
+const EMPTY_POOL: LiveQuestion[] = [];
 
 type View = 'drill' | 'submit' | 'review';
 
@@ -187,9 +189,12 @@ export default function Home() {
   const [authOpen, setAuthOpen] = useState(false);
   const [guideSection, setGuideSection] = useState<GuideSection | null>(null);
   const [reportTarget, setReportTarget] = useState<{ id: string; prompt: string } | null>(null);
-  const { state, user } = useCommunity();
-  const pool = useLiveQuestions(state);
-  const reviewCount = actionableReviewCount(state);
+  const { backend } = useBackend();
+  const { data: user } = useSessionUser();
+  const { data: liveData, loading: poolLoading } = useLivePool();
+  const pool = liveData ?? EMPTY_POOL;
+  const { data: reviewCountData } = useReviewCount();
+  const reviewCount = reviewCountData ?? 0;
   const activePool = useMemo(() => {
     let filtered = pool;
     if (binFilter !== 'all') filtered = filtered.filter((l) => l.question.difficulty === binFilter);
@@ -229,9 +234,11 @@ export default function Home() {
   // Clamp during render (never in an effect): the pool only grows as the
   // community approves questions, so this is purely defensive.
   const safeIndex = totalQuestions === 0 ? 0 : Math.min(currentIndex, totalQuestions - 1);
-  const current = runPool[safeIndex];
-  const currentQ = current.question;
-  const isCorrect = isAnswerSubmitted && selectedOption === currentQ.correctAnswer;
+  // Undefined while the pool loads (or if a removal shrinks the run) —
+  // the drill card below only renders once both are defined.
+  const current: LiveQuestion | undefined = runPool[safeIndex];
+  const currentQ = current?.question;
+  const isCorrect = isAnswerSubmitted && selectedOption === currentQ?.correctAnswer;
   const isRunEnding = lives <= 0 || safeIndex === totalQuestions - 1;
 
   // Persist state to localStorage
@@ -320,7 +327,7 @@ export default function Home() {
   };
 
   const handleCheckAnswer = () => {
-    if (!selectedOption || isAnswerSubmitted) return;
+    if (!selectedOption || isAnswerSubmitted || !current || !currentQ) return;
 
     const correct = selectedOption === currentQ.correctAnswer;
     setIsAnswerSubmitted(true);
@@ -329,7 +336,9 @@ export default function Home() {
     // question is under community review (lives + streaks still count).
     if (current.flagged) {
       setLastElo(null);
-    } else {
+    } else if (!backend) {
+      // Backend still resolving: rate against the device copy (the same
+      // source the backend reads), so nothing diverges once it arrives.
       const mapBefore = mapRatingFor(elo, currentQ.mapId).rating;
       const result = applyEloAnswer(elo, currentQ.mapId, currentQ.difficulty, correct);
       setElo(result.state);
@@ -341,6 +350,26 @@ export default function Home() {
         overallAfter: result.overall.rating,
         bonus: result.bonus,
         winStreak: result.winStreak,
+      });
+    } else {
+      // Rated via the backend: the server record for signed-in users,
+      // device-local for guests. The device copy stays in sync either
+      // way, so the header badge never disagrees with the profile.
+      const mapId = currentQ.mapId;
+      const difficulty = currentQ.difficulty;
+      const mapBefore = mapRatingFor(elo, mapId).rating;
+      const overallBefore = overall.rating;
+      void backend.answerRated(mapId, difficulty, correct).then((result) => {
+        setElo(result.state);
+        setLastElo({
+          mapId,
+          before: mapBefore,
+          after: result.mapRating,
+          overallBefore,
+          overallAfter: result.overall.rating,
+          bonus: result.bonus,
+          winStreak: result.winStreak,
+        });
       });
     }
 
@@ -484,7 +513,7 @@ export default function Home() {
         </div>
       )}
 
-      {view === 'drill' && (
+      {view === 'drill' && !poolLoading && (
         <div
           className="w-full max-w-xl flex flex-wrap items-center gap-1.5 pb-3"
           role="group"
@@ -509,7 +538,7 @@ export default function Home() {
         </div>
       )}
 
-      {view === 'drill' && (
+      {view === 'drill' && !poolLoading && (
         <div
           className="w-full max-w-xl flex flex-wrap items-center gap-1.5 pb-3 -mt-2"
           role="group"
@@ -533,7 +562,13 @@ export default function Home() {
         </div>
       )}
 
-      {view === 'drill' && activePool.length === 0 && (
+      {view === 'drill' && poolLoading && (
+        <div className="w-full max-w-xl rounded-2xl border border-zinc-800 bg-zinc-900 p-8 text-center">
+          <p className="text-sm text-zinc-500">Loading the drill pool…</p>
+        </div>
+      )}
+
+      {view === 'drill' && !poolLoading && activePool.length === 0 && (
         <div className="w-full max-w-xl">
           <EmptyState
             title="No questions here yet"
@@ -562,7 +597,7 @@ export default function Home() {
         </div>
       )}
 
-      {view === 'drill' && activePool.length > 0 && (
+      {view === 'drill' && !poolLoading && activePool.length > 0 && current && currentQ && (
         <>
           <div className="w-full max-w-xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-4 sm:p-6 lg:p-8 flex flex-col gap-6 my-auto">
         {/* Header Stats — compresses gracefully on narrow phones */}

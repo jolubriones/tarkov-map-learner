@@ -2,8 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { LogOut, User, Zap } from 'lucide-react';
-import { useCommunity } from '@/hooks/useCommunity';
-import { signIn, signInDemo, signOut, signUp } from '@/lib/community/store';
+import { useAsyncAction, useBackend, useMyWork, useSessionUser } from '@/hooks/useCommunity';
 import { COMMUNITY_CONFIG as C } from '@/lib/community/config';
 import {
   overallRating,
@@ -20,29 +19,48 @@ import { DifficultyBadge, Modal, inputClass } from './ui';
  * Accounts own submissions and power the one-review-per-user rules.
  */
 export default function AuthDialog({ onClose }: { onClose: () => void }) {
-  const { state, user } = useCommunity();
+  const { data: user, loading: userLoading } = useSessionUser();
+  const { backend, kind } = useBackend();
+  const { data: myWork, loading: myWorkLoading } = useMyWork();
+  const { busy, run } = useAsyncAction();
+  const hosted = kind === 'supabase';
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [login, setLogin] = useState('');
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  // Dialog mounts fresh on open, so this is always the current device rating.
+  // Dialog mounts fresh on open, so this is always the current device rating
+  // (rated answers sync the device copy on both backends).
   const [elo] = useState(() => readElo());
   const overall = overallRating(elo);
   const rank = rankForRating(overall.rating);
   const maps = playedMaps(elo);
 
+  if (userLoading || (user && myWorkLoading && !myWork)) {
+    return (
+      <Modal label="Account" onClose={onClose}>
+        <p className="text-sm text-zinc-500">Loading…</p>
+      </Modal>
+    );
+  }
+
   if (user) {
-    const mySubs = state.submissions.filter((s) => s.authorId === user.id);
+    const mySubs = myWork?.submissions ?? [];
     const approved = mySubs.filter((s) => s.status === 'approved').length;
-    const reviewsGiven =
-      state.submissions.filter((s) => s.reviews.some((r) => r.reviewerId === user.id)).length +
-      state.corrections.filter((c) => c.reviews.some((r) => r.reviewerId === user.id)).length;
-    const reportsFiled = state.reports.filter((r) => r.reporterId === user.id).length;
-    const fixesApproved = state.corrections.filter(
-      (c) => c.authorId === user.id && c.status === 'approved'
-    ).length;
+    const fixesApproved =
+      myWork?.corrections.filter((c) => c.status === 'approved').length ?? 0;
+    const reportsFiled = myWork?.reports.length ?? 0;
+    const reviewsGiven = myWork?.reviewsGiven ?? 0;
+
+    const handleSignOut = () => {
+      if (!backend) return;
+      void run(async () => {
+        await backend.signOut();
+        onClose();
+      });
+    };
 
     return (
       <Modal label="Your account" onClose={onClose}>
@@ -112,11 +130,9 @@ export default function AuthDialog({ onClose }: { onClose: () => void }) {
         </div>
 
         <button
-          onClick={() => {
-            signOut();
-            onClose();
-          }}
-          className="mt-4 w-full py-2.5 rounded-xl font-semibold text-sm border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2"
+          onClick={handleSignOut}
+          disabled={busy}
+          className="mt-4 w-full py-2.5 rounded-xl font-semibold text-sm border border-zinc-700 text-zinc-300 hover:bg-zinc-800 disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
         >
           <LogOut className="w-4 h-4" /> Sign out
         </button>
@@ -126,18 +142,19 @@ export default function AuthDialog({ onClose }: { onClose: () => void }) {
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    setBusy(true);
+    if (!backend) return;
     setError(null);
-    const result =
-      mode === 'signin'
-        ? signIn(username, password)
-        : signUp(username, password, displayName);
-    setBusy(false);
-    if (result.ok) {
-      onClose();
-    } else {
-      setError(result.error);
-    }
+    void run(async () => {
+      const result =
+        mode === 'signin'
+          ? await backend.signIn(login, password)
+          : await backend.signUp(username, email, password, displayName);
+      if (result.ok) {
+        onClose();
+      } else {
+        setError(result.error);
+      }
+    });
   };
 
   return (
@@ -161,35 +178,68 @@ export default function AuthDialog({ onClose }: { onClose: () => void }) {
       </div>
 
       <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-bold uppercase tracking-wider text-zinc-400" htmlFor="auth-user">
-            Username
-          </label>
-          <input
-            id="auth-user"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-            autoFocus
-            maxLength={C.usernameMax}
-            placeholder="e.g. ratking42"
-            className={inputClass}
-          />
-        </div>
-        {mode === 'signup' && (
+        {mode === 'signin' ? (
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400" htmlFor="auth-display">
-              Display name <span className="text-zinc-600 normal-case">(optional)</span>
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400" htmlFor="auth-login">
+              {hosted ? 'Email' : 'Username'}
             </label>
             <input
-              id="auth-display"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              maxLength={32}
-              placeholder="Shown on your questions"
+              id="auth-login"
+              value={login}
+              onChange={(e) => setLogin(e.target.value)}
+              autoComplete={hosted ? 'email' : 'username'}
+              autoFocus
+              maxLength={hosted ? 254 : C.usernameMax}
+              placeholder={hosted ? 'you@example.com' : 'e.g. ratking42'}
               className={inputClass}
             />
           </div>
+        ) : (
+          <>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-zinc-400" htmlFor="auth-user">
+                Username
+              </label>
+              <input
+                id="auth-user"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
+                autoFocus
+                maxLength={C.usernameMax}
+                placeholder="e.g. ratking42"
+                className={inputClass}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-zinc-400" htmlFor="auth-email">
+                Email
+              </label>
+              <input
+                id="auth-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                maxLength={254}
+                placeholder="you@example.com"
+                className={inputClass}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-zinc-400" htmlFor="auth-display">
+                Display name <span className="text-zinc-600 normal-case">(optional)</span>
+              </label>
+              <input
+                id="auth-display"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                maxLength={32}
+                placeholder="Shown on your questions"
+                className={inputClass}
+              />
+            </div>
+          </>
         )}
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-bold uppercase tracking-wider text-zinc-400" htmlFor="auth-pass">
@@ -226,18 +276,24 @@ export default function AuthDialog({ onClose }: { onClose: () => void }) {
       </form>
 
       <div className="mt-3 pt-3 border-t border-zinc-800">
-        <button
-          onClick={() => {
-            signInDemo();
-            onClose();
-          }}
-          className="w-full py-2.5 rounded-xl font-semibold text-sm border border-dashed border-zinc-700 text-amber-300 hover:bg-zinc-800/60 transition-colors flex items-center justify-center gap-2"
-        >
-          <Zap className="w-4 h-4" /> Just exploring? Use the demo account
-        </button>
+        {!hosted && (
+          <button
+            onClick={() => {
+              if (!backend) return;
+              void run(async () => {
+                await backend.signInDemo();
+                onClose();
+              });
+            }}
+            className="w-full py-2.5 rounded-xl font-semibold text-sm border border-dashed border-zinc-700 text-amber-300 hover:bg-zinc-800/60 transition-colors flex items-center justify-center gap-2"
+          >
+            <Zap className="w-4 h-4" /> Just exploring? Use the demo account
+          </button>
+        )}
         <p className="mt-2 text-[11px] text-zinc-600 leading-relaxed">
-          Accounts currently live on this device (a stand-in until hosted auth lands) — your
-          submissions, reviews, and reports are what keep the question pool honest.
+          {hosted
+            ? 'Your account syncs across devices — submissions, reviews, and reports follow you.'
+            : 'Accounts currently live on this device (a stand-in until hosted auth lands) — your submissions, reviews, and reports are what keep the question pool honest.'}
         </p>
       </div>
     </Modal>

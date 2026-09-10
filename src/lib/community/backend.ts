@@ -15,6 +15,8 @@ import type {
 import type { EloResult, EloState } from './elo';
 import type { QuestionDifficulty } from '@/lib/types';
 
+import { createLocalBackend } from './localBackend';
+
 export type BackendKind = 'local' | 'supabase';
 
 /**
@@ -66,6 +68,8 @@ export interface CommunityBackend {
   /** Hosted: email + password. Local: username + password (email ignored). */
   signIn(login: string, password: string): Promise<AuthResult>;
   signOut(): Promise<void>;
+  /** Local-only demo login; hosted always refuses (the button is hidden there). */
+  signInDemo(): Promise<AuthResult>;
 
   // -- reads --------------------------------------------------------------
   /** Official bank ∪ approved community, corrections applied. */
@@ -77,6 +81,8 @@ export interface CommunityBackend {
   listMyCorrections(): Promise<CorrectionProposal[]>;
   listMyReports(): Promise<QuestionReport[]>;
   actionableReviewCount(): Promise<number>;
+  /** Reviews cast by the session user across both queues (0 for guests). */
+  countReviewsGiven(): Promise<number>;
 
   // -- submissions ----------------------------------------------------------
   submitQuestion(draft: QuestionDraft): Promise<IdResult>;
@@ -128,7 +134,6 @@ export async function getBackend(): Promise<CommunityBackend> {
     const { createSupabaseBackend } = await import('./supabaseBackend');
     cached = createSupabaseBackend();
   } else {
-    const { createLocalBackend } = await import('./localBackend');
     cached = createLocalBackend();
   }
   return cached;

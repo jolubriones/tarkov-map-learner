@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { Camera, Compass, MapPin, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { useMemo, useState, type ChangeEvent } from 'react';
+import { Camera, Compass, MapPin, Plus, Sparkles, Trash2, Upload } from 'lucide-react';
 import type { QuestionDraft, ActionResult } from '@/lib/community/types';
 import { COMMUNITY_CONFIG as C } from '@/lib/community/config';
 import {
@@ -9,13 +9,13 @@ import {
   QUESTION_TYPE_META,
   blankDraft,
   exampleDraft,
+  findDuplicateHits,
   validateDraft,
   type DraftErrors,
 } from '@/lib/community/validation';
 import QuestionPreview from './QuestionPreview';
 import { FieldError, inputClass, labelClass } from './ui';
-import { useCommunity } from '@/hooks/useCommunity';
-import { findDuplicates } from '@/lib/community/store';
+import { useBackend, useLivePool, usePendingSubmissions } from '@/hooks/useCommunity';
 import { DIFFICULTY_META, DIFFICULTY_ORDER } from '@/lib/community/difficulty';
 import { MAPS } from '@/lib/community/maps';
 import type { QuestionDifficulty, QuestionType } from '@/lib/types';
@@ -41,13 +41,15 @@ export default function QuestionForm({
 }: {
   initial?: QuestionDraft;
   submitLabel: string;
-  onSubmit: (draft: QuestionDraft) => ActionResult;
+  onSubmit: (draft: QuestionDraft) => ActionResult | Promise<ActionResult>;
   /** Server/store-side error to show above the submit button. */
   topError?: string | null;
   /** Skip this id in duplicate detection (your own draft when editing). */
   excludeQuestionId?: string;
 }) {
-  const { state: communityState } = useCommunity();
+  const { backend } = useBackend();
+  const { data: live } = useLivePool();
+  const { data: pending } = usePendingSubmissions();
   const [type, setType] = useState<QuestionType>(initial?.type ?? 'landmark_mc');
   // No default: the author must consciously bin their own question.
   const [difficulty, setDifficulty] = useState<QuestionDifficulty | null>(
@@ -65,6 +67,9 @@ export default function QuestionForm({
   const [tip, setTip] = useState(initial?.tip ?? '');
   const [errors, setErrors] = useState<DraftErrors>({});
   const [imagePreviewFailed, setImagePreviewFailed] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const draft: QuestionDraft = useMemo(
     () => ({
@@ -85,10 +90,21 @@ export default function QuestionForm({
 
   const isCompass = type === 'compass_check';
 
-  const dupHits = useMemo(
-    () => findDuplicates(communityState, prompt, excludeQuestionId),
-    [communityState, prompt, excludeQuestionId]
-  );
+  const dupHits = useMemo(() => {
+    const candidates = [
+      ...(live ?? []).map((l) => ({
+        questionId: l.question.id,
+        prompt: l.question.prompt,
+        source: l.source,
+      })),
+      ...(pending ?? []).map((s) => ({
+        questionId: s.id,
+        prompt: s.draft.prompt,
+        source: 'pending' as const,
+      })),
+    ];
+    return findDuplicateHits(candidates, prompt, excludeQuestionId);
+  }, [live, pending, prompt, excludeQuestionId]);
 
   const switchType = (next: QuestionType) => {
     setType(next);
@@ -148,6 +164,24 @@ export default function QuestionForm({
     setErrors((prev) => ({ ...prev, options: undefined, correctAnswer: undefined }));
   };
 
+  const handlePhoto = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = ''; // allow re-picking the same file
+    if (!file || !backend || uploading) return;
+    setUploading(true);
+    setUploadError(null);
+    void backend.uploadPhoto(file).then((result) => {
+      setUploading(false);
+      if (result.ok) {
+        setImageUrl(result.url);
+        setImagePreviewFailed(false);
+        setErrors((prev) => ({ ...prev, imageUrl: undefined }));
+      } else {
+        setUploadError(result.error);
+      }
+    });
+  };
+
   const handleSubmit = () => {
     if (!difficulty) {
       setErrors((prev) => ({ ...prev, difficulty: 'Pick the difficulty bin your question belongs in.' }));
@@ -156,7 +190,12 @@ export default function QuestionForm({
     const found = validateDraft(draft);
     setErrors(found);
     if (Object.keys(found).length > 0) return;
-    onSubmit(draft);
+    if (submitting) return;
+    setSubmitting(true);
+    void Promise.resolve(onSubmit(draft)).then(
+      () => setSubmitting(false),
+      () => setSubmitting(false)
+    );
   };
 
   return (
@@ -456,7 +495,7 @@ export default function QuestionForm({
         {type === 'landmark_mc' && (
           <div className="flex flex-col gap-1.5">
             <label className={labelClass} htmlFor="qf-image">
-              Photo URL <span className="text-red-400 normal-case">(required)</span>
+              Photo <span className="text-red-400 normal-case">(required)</span>
             </label>
             <input
               id="qf-image"
@@ -467,11 +506,35 @@ export default function QuestionForm({
                 setErrors((prev) => ({ ...prev, imageUrl: undefined }));
               }}
               inputMode="url"
-              maxLength={500}
-              placeholder="https://… (stable link — self-hosted on merge)"
+              placeholder="Paste an image URL — or upload a photo below"
               className={inputClass}
             />
             <FieldError message={errors.imageUrl} />
+            <label
+              className={`inline-flex items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2.5 text-xs font-bold transition-colors ${
+                uploading || !backend
+                  ? 'border-zinc-800 text-zinc-600 cursor-wait'
+                  : 'border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:bg-zinc-800/50 cursor-pointer'
+              }`}
+            >
+              <Upload className="w-4 h-4" />
+              {uploading ? 'Uploading…' : 'Upload a photo instead'}
+              <input
+                type="file"
+                accept="image/*"
+                disabled={uploading || !backend}
+                onChange={handlePhoto}
+                className="hidden"
+              />
+            </label>
+            {uploadError && (
+              <p role="alert" className="text-xs text-red-400">
+                {uploadError}
+              </p>
+            )}
+            <p className="text-[11px] text-zinc-600">
+              Screenshots work as-is — resizing happens automatically.
+            </p>
             {imageUrl.trim() && !imagePreviewFailed ? (
               <img
                 src={imageUrl.trim()}
@@ -537,9 +600,10 @@ export default function QuestionForm({
           <button
             type="button"
             onClick={handleSubmit}
-            className="w-full py-3.5 rounded-xl font-bold uppercase tracking-wider bg-emerald-600 border-b-4 border-emerald-800 hover:bg-emerald-500 text-white active:border-b-0 active:translate-y-1 transition-all"
+            disabled={submitting}
+            className="w-full py-3.5 rounded-xl font-bold uppercase tracking-wider bg-emerald-600 border-b-4 border-emerald-800 hover:bg-emerald-500 disabled:opacity-60 text-white active:border-b-0 active:translate-y-1 transition-all"
           >
-            {submitLabel}
+            {submitting ? 'Submitting…' : submitLabel}
           </button>
           <p className="text-[11px] text-zinc-600 leading-relaxed">
             {C.approvalsToPublish} peer approvals publish it to the drill pool · {C.rejectionsToDecline} rejections

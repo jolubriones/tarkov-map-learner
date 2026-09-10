@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { Flag } from 'lucide-react';
-import { useCommunity } from '@/hooks/useCommunity';
-import { fileReport } from '@/lib/community/store';
+import { useAsyncAction, useBackend, useSessionUser } from '@/hooks/useCommunity';
 import { REPORT_REASONS, type ReportReason } from '@/lib/community/types';
 import { Modal, inputClass } from './ui';
 
@@ -22,11 +21,21 @@ export default function ReportDialog({
   onClose: () => void;
   onRequireAuth: () => void;
 }) {
-  const { user } = useCommunity();
+  const { data: user, loading } = useSessionUser();
+  const { backend } = useBackend();
+  const { busy, run } = useAsyncAction();
   const [reason, setReason] = useState<ReportReason>('wrong-answer');
   const [details, setDetails] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+
+  if (loading) {
+    return (
+      <Modal label="Report question" onClose={onClose}>
+        <p className="text-sm text-zinc-500">Loading…</p>
+      </Modal>
+    );
+  }
 
   if (!user) {
     return (
@@ -55,7 +64,7 @@ export default function ReportDialog({
           </p>
           <button
             onClick={onClose}
-            className="w-full py-2.5 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+            className="mt-4 w-full py-2.5 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
           >
             Back to drill
           </button>
@@ -69,12 +78,16 @@ export default function ReportDialog({
       setError('Describe the problem so reviewers know what to check.');
       return;
     }
-    const result = fileReport(questionId, reason, details);
-    if (result.ok) {
-      setDone(true);
-    } else {
-      setError(result.error);
-    }
+    if (!backend) return;
+    setError(null);
+    void run(() => backend.fileReport(questionId, reason, details)).then((result) => {
+      if (!result) return; // another action already in flight
+      if (result.ok) {
+        setDone(true);
+      } else {
+        setError(result.error);
+      }
+    });
   };
 
   return (
@@ -125,9 +138,10 @@ export default function ReportDialog({
       )}
       <button
         onClick={submit}
-        className="mt-3 w-full py-2.5 rounded-xl font-bold text-sm bg-amber-600 hover:bg-amber-500 text-white transition-colors flex items-center justify-center gap-2"
+        disabled={busy}
+        className="mt-3 w-full py-2.5 rounded-xl font-bold text-sm bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white transition-colors flex items-center justify-center gap-2"
       >
-        <Flag className="w-4 h-4" /> File report
+        <Flag className="w-4 h-4" /> {busy ? 'Filing…' : 'File report'}
       </button>
     </Modal>
   );

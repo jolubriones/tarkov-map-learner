@@ -2,10 +2,9 @@
 
 import { useState } from 'react';
 import { CheckCircle2, ClipboardCheck, PlusCircle, User } from 'lucide-react';
-import { useCommunity } from '@/hooks/useCommunity';
-import { submitQuestion } from '@/lib/community/store';
+import { useBackend, useSessionUser } from '@/hooks/useCommunity';
 import { COMMUNITY_CONFIG as C } from '@/lib/community/config';
-import type { QuestionDraft } from '@/lib/community/types';
+import type { ActionResult, QuestionDraft } from '@/lib/community/types';
 import QuestionForm from './QuestionForm';
 
 /**
@@ -19,10 +18,19 @@ export default function SubmitPanel({
   onRequireAuth: () => void;
   onGoReview: () => void;
 }) {
-  const { user } = useCommunity();
+  const { data: user, loading } = useSessionUser();
+  const { backend, kind } = useBackend();
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [topError, setTopError] = useState<string | null>(null);
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 sm:p-8 text-center">
+        <p className="text-sm text-zinc-500">Loading…</p>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -52,9 +60,18 @@ export default function SubmitPanel({
         <CheckCircle2 className="w-10 h-10 text-emerald-400" />
         <h2 className="text-xl font-extrabold text-zinc-100">Submitted for review</h2>
         <p className="text-sm text-zinc-400 max-w-md leading-relaxed">
-          Your question is in the review queue. Once {C.approvalsToPublish} players approve it, it
-          joins the drill pool on this device — you can watch its progress under Review, then
-          export it from Review → Mine to propose it for the shared bank.
+          {kind === 'supabase' ? (
+            <>
+              Your question is in the review queue. Once {C.approvalsToPublish} players approve it,
+              it joins the drill pool for everyone — you can watch its progress under Review.
+            </>
+          ) : (
+            <>
+              Your question is in the review queue. Once {C.approvalsToPublish} players approve it,
+              it joins the drill pool on this device — you can watch its progress under Review,
+              then export it from Review → Mine to propose it for the shared bank.
+            </>
+          )}
         </p>
         <div className="mt-1 flex flex-wrap justify-center gap-2">
           <button
@@ -78,11 +95,16 @@ export default function SubmitPanel({
     );
   }
 
-  const handleSubmit = (draft: QuestionDraft) => {
-    const result = submitQuestion(draft);
+  const handleSubmit = async (draft: QuestionDraft): Promise<ActionResult> => {
+    if (!backend) {
+      const error = 'Still loading — try again in a moment.';
+      setTopError(error);
+      return { ok: false, error };
+    }
+    const result = await backend.submitQuestion(draft);
     if (result.ok) {
       setSubmittedId(result.id);
-      return { ok: true as const };
+      return { ok: true };
     }
     setTopError(result.error);
     return result;

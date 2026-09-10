@@ -516,6 +516,10 @@ export function createSupabaseBackend(): CommunityBackend {
       emit();
     },
 
+    async signInDemo(): Promise<AuthResult> {
+      return { ok: false, error: 'The demo account only exists on the local backend.' };
+    },
+
     async listLiveQuestions(): Promise<LiveQuestion[]> {
       const c = await db();
       const [rows, openReports, fixes] = await Promise.all([
@@ -743,6 +747,24 @@ export function createSupabaseBackend(): CommunityBackend {
       );
       const names = await displayNames([uid]);
       return rows.map((r) => toReport(r, names));
+    },
+
+    async countReviewsGiven(): Promise<number> {
+      const c = await db();
+      const uid = await sessionUserId();
+      if (!uid) return 0;
+      const [sub, fix] = await Promise.all([
+        all<{ question_id: string }>(
+          c.from('reviews').select<{ question_id: string }>('question_id').eq('reviewer_id', uid)
+        ),
+        all<{ correction_id: string }>(
+          c
+            .from('correction_reviews')
+            .select<{ correction_id: string }>('correction_id')
+            .eq('reviewer_id', uid)
+        ),
+      ]);
+      return sub.length + fix.length;
     },
 
     async actionableReviewCount(): Promise<number> {

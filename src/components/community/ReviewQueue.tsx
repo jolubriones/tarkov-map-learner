@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   Check,
   ClipboardCheck,
@@ -12,37 +12,31 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
-import { useCommunity } from '@/hooks/useCommunity';
 import {
-  buildExportPayload,
-  countApprovals,
-  countRejections,
-  editCorrection,
-  editSubmission,
-  findDuplicates,
-  getFlaggedItems,
-  pendingCorrections,
-  pendingSubmissions,
-  removeSubmission,
-  resolveQuestion,
-  reviewCorrection,
-  reviewSubmission,
-  voteKeep,
-  proposeCorrection,
-  withdrawCorrection,
-  withdrawSubmission,
-  type FlaggedItem,
-} from '@/lib/community/store';
+  useBackend,
+  useFlaggedItems,
+  useLivePool,
+  useMyWork,
+  usePendingCorrections,
+  usePendingSubmissions,
+  useSessionUser,
+  type MyWork,
+} from '@/hooks/useCommunity';
+// Local-only export payload + pure counting helpers — not backend actions,
+// so they stay as direct imports (everything mutating goes via useBackend).
+import { buildExportPayload, countApprovals, countRejections, getState } from '@/lib/community/store';
 import { COMMUNITY_CONFIG as C } from '@/lib/community/config';
 import {
   type ActionResult,
   type CommunityUser,
   type CorrectionProposal,
+  type FlaggedItem,
+  type LiveQuestion,
   type QuestionDraft,
   type Review,
   type Submission,
 } from '@/lib/community/types';
-import { draftsEqual, questionToDraft } from '@/lib/community/validation';
+import { draftsEqual, findDuplicateHits, questionToDraft } from '@/lib/community/validation';
 import { DIFFICULTY_META } from '@/lib/community/difficulty';
 import { reportReasonLabel, timeAgo } from '@/lib/community/format';
 import QuestionPreview from './QuestionPreview';
@@ -52,6 +46,16 @@ import GuideDialog from './GuideDialog';
 
 type SubTab = 'new' | 'flagged' | 'fixes' | 'mine';
 
+// Stable empties while queries load (keeps card memos from recomputing).
+const EMPTY_SUBS: Submission[] = [];
+const EMPTY_FIXES: CorrectionProposal[] = [];
+const EMPTY_FLAGGED: FlaggedItem[] = [];
+const EMPTY_LIVE: LiveQuestion[] = [];
+
+function PaneLoading() {
+  return <p className="text-sm text-zinc-500 py-8 text-center">Loading…</p>;
+}
+
 /**
  * Review mode: the community quality-control room.
  * - New: pending submissions waiting for 3 approvals.
@@ -60,17 +64,21 @@ type SubTab = 'new' | 'flagged' | 'fixes' | 'mine';
  * - Mine: the signed-in player's own contributions and their status.
  */
 export default function ReviewQueue({ onRequireAuth }: { onRequireAuth: () => void }) {
-  const { state, user } = useCommunity();
+  const { data: user, loading: userLoading } = useSessionUser();
+  const { data: subsData, loading: subsLoading } = usePendingSubmissions();
+  const { data: fixesData, loading: fixesLoading } = usePendingCorrections();
+  const { data: flaggedData, loading: flaggedLoading } = useFlaggedItems();
+  const { data: myWork, loading: myLoading } = useMyWork();
+  const { data: liveData } = useLivePool();
   const [tab, setTab] = useState<SubTab>('new');
   const [howOpen, setHowOpen] = useState(false);
 
-  const subs = pendingSubmissions(state);
-  const fixes = pendingCorrections(state);
-  const flagged = getFlaggedItems(state);
-  const mineCount = user
-    ? state.submissions.filter((s) => s.authorId === user.id).length +
-      state.corrections.filter((c) => c.authorId === user.id).length +
-      state.reports.filter((r) => r.reporterId === user.id).length
+  const subs = subsData ?? EMPTY_SUBS;
+  const fixes = fixesData ?? EMPTY_FIXES;
+  const flagged = flaggedData ?? EMPTY_FLAGGED;
+  const live = liveData ?? EMPTY_LIVE;
+  const mineCount = myWork
+    ? myWork.submissions.length + myWork.corrections.length + myWork.reports.length
     : 0;
 
   const tabs: { id: SubTab; label: string; count: number }[] = [
@@ -79,6 +87,14 @@ export default function ReviewQueue({ onRequireAuth }: { onRequireAuth: () => vo
     { id: 'fixes', label: 'Fixes', count: fixes.length },
     { id: 'mine', label: 'Mine', count: mineCount },
   ];
+
+  if (userLoading) {
+    return (
+      <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-8 text-center">
+        <p className="text-sm text-zinc-500">Loading…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -120,19 +136,30 @@ export default function ReviewQueue({ onRequireAuth }: { onRequireAuth: () => vo
       </div>
 
       {tab === 'new' &&
-        (subs.length === 0 ? (
+        (subsLoading && !subsData ? (
+          <PaneLoading />
+        ) : subs.length === 0 ? (
           <EmptyState
             title="Queue clear"
             body="No submissions waiting. Submit a question and it will show up here for peer review."
           />
         ) : (
           subs.map((s) => (
-            <SubmissionCard key={s.id} submission={s} user={user} onRequireAuth={onRequireAuth} />
+            <SubmissionCard
+              key={s.id}
+              submission={s}
+              user={user}
+              onRequireAuth={onRequireAuth}
+              live={live}
+              pendingSubs={subs}
+            />
           ))
         ))}
 
       {tab === 'flagged' &&
-        (flagged.length === 0 ? (
+        (flaggedLoading && !flaggedData ? (
+          <PaneLoading />
+        ) : flagged.length === 0 ? (
           <EmptyState
             title="Nothing flagged"
             body="No live questions are under suspicion. If you spot a wrong answer mid-drill, hit Report and it lands here."
@@ -144,18 +171,34 @@ export default function ReviewQueue({ onRequireAuth }: { onRequireAuth: () => vo
         ))}
 
       {tab === 'fixes' &&
-        (fixes.length === 0 ? (
+        (fixesLoading && !fixesData ? (
+          <PaneLoading />
+        ) : fixes.length === 0 ? (
           <EmptyState
             title="No pending fixes"
             body="Nobody has proposed a correction yet. Flagged questions get fixed here once reviewers approve a new version."
           />
         ) : (
           fixes.map((c) => (
-            <CorrectionCard key={c.id} fix={c} user={user} onRequireAuth={onRequireAuth} />
+            <CorrectionCard
+              key={c.id}
+              fix={c}
+              user={user}
+              onRequireAuth={onRequireAuth}
+              live={live}
+            />
           ))
         ))}
 
-      {tab === 'mine' && <MineSection onRequireAuth={onRequireAuth} />}
+      {tab === 'mine' && (
+        <MineSection
+          onRequireAuth={onRequireAuth}
+          user={user}
+          myWork={myWork}
+          myLoading={myLoading && !myWork}
+          live={live}
+        />
+      )}
 
       {howOpen && (
         <GuideDialog initialSection="review" onClose={() => setHowOpen(false)} />
@@ -185,26 +228,31 @@ function ReviewBlock({
   user: CommunityUser | null;
   isAuthor: boolean;
   onRequireAuth: () => void;
-  onReview: (decision: 'approve' | 'reject', comment: string) => { ok: true } | { ok: false; error: string };
+  onReview: (decision: 'approve' | 'reject', comment: string) => Promise<ActionResult>;
   approveLabel?: string;
   rejectLabel?: string;
 }) {
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const mine = user ? reviews.find((r) => r.reviewerId === user.id) : undefined;
 
   const act = (decision: 'approve' | 'reject') => {
+    if (busy) return;
     if (decision === 'reject' && comment.trim().length < C.minRejectionNoteLength) {
       setError('Rejections need a short note so the author knows what to fix.');
       return;
     }
-    const result = onReview(decision, comment);
-    if (result.ok) {
-      setComment('');
-      setError(null);
-    } else {
-      setError(result.error);
-    }
+    setBusy(true);
+    void onReview(decision, comment).then((result) => {
+      setBusy(false);
+      if (result.ok) {
+        setComment('');
+        setError(null);
+      } else {
+        setError(result.error);
+      }
+    });
   };
 
   return (
@@ -282,13 +330,15 @@ function ReviewBlock({
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => act('approve')}
-              className="py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center justify-center gap-1.5"
+              disabled={busy}
+              className="py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white transition-colors flex items-center justify-center gap-1.5"
             >
               <Check className="w-4 h-4" /> {approveLabel}
             </button>
             <button
               onClick={() => act('reject')}
-              className="py-2.5 rounded-xl font-bold text-xs sm:text-sm border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors flex items-center justify-center gap-1.5"
+              disabled={busy}
+              className="py-2.5 rounded-xl font-bold text-xs sm:text-sm border border-zinc-700 text-zinc-300 hover:bg-zinc-800 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
             >
               <X className="w-4 h-4" /> {rejectLabel}
             </button>
@@ -315,13 +365,31 @@ function SubmissionCard({
   submission,
   user,
   onRequireAuth,
+  live,
+  pendingSubs,
 }: {
   submission: Submission;
   user: CommunityUser | null;
   onRequireAuth: () => void;
+  live: LiveQuestion[];
+  pendingSubs: Submission[];
 }) {
-  const { state } = useCommunity();
-  const dupHits = findDuplicates(state, submission.draft.prompt, submission.id);
+  const { backend } = useBackend();
+  const dupHits = useMemo(() => {
+    const candidates = [
+      ...live.map((l) => ({
+        questionId: l.question.id,
+        prompt: l.question.prompt,
+        source: l.source,
+      })),
+      ...pendingSubs.map((s) => ({
+        questionId: s.id,
+        prompt: s.draft.prompt,
+        source: 'pending' as const,
+      })),
+    ];
+    return findDuplicateHits(candidates, submission.draft.prompt, submission.id);
+  }, [live, pendingSubs, submission.draft.prompt, submission.id]);
   return (
     <article className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -360,7 +428,10 @@ function SubmissionCard({
         user={user}
         isAuthor={user?.id === submission.authorId}
         onRequireAuth={onRequireAuth}
-        onReview={(decision, comment) => reviewSubmission(submission.id, decision, comment)}
+        onReview={async (decision, comment) => {
+          if (!backend) return { ok: false as const, error: 'Still loading — try again in a moment.' };
+          return backend.reviewSubmission(submission.id, decision, comment);
+        }}
       />
     </article>
   );
@@ -374,13 +445,15 @@ function CorrectionCard({
   fix,
   user,
   onRequireAuth,
+  live,
 }: {
   fix: CorrectionProposal;
   user: CommunityUser | null;
   onRequireAuth: () => void;
+  live: LiveQuestion[];
 }) {
-  const { state } = useCommunity();
-  const current = resolveQuestion(state, fix.questionId);
+  const { backend } = useBackend();
+  const current = live.find((l) => l.question.id === fix.questionId);
   const changedAnswer =
     current && current.question.correctAnswer !== fix.draft.correctAnswer.trim();
   const changedBin = current && current.question.difficulty !== fix.draft.difficulty;
@@ -446,7 +519,10 @@ function CorrectionCard({
         user={user}
         isAuthor={user?.id === fix.authorId}
         onRequireAuth={onRequireAuth}
-        onReview={(decision, comment) => reviewCorrection(fix.id, decision, comment)}
+        onReview={async (decision, comment) => {
+          if (!backend) return { ok: false as const, error: 'Still loading — try again in a moment.' };
+          return backend.reviewCorrection(fix.id, decision, comment);
+        }}
         approveLabel="Approve fix"
         rejectLabel="Reject fix"
       />
@@ -467,13 +543,19 @@ function FlaggedCard({
   user: CommunityUser | null;
   onRequireAuth: () => void;
 }) {
+  const { backend } = useBackend();
   const [fixing, setFixing] = useState(false);
   const [keepError, setKeepError] = useState<string | null>(null);
+  const [keepBusy, setKeepBusy] = useState(false);
   const voted = user ? item.keepVotes.some((v) => v.userId === user.id) : false;
 
   const keep = () => {
-    const result = voteKeep(item.questionId);
-    setKeepError(result.ok ? null : result.error);
+    if (!backend || keepBusy) return;
+    setKeepBusy(true);
+    void backend.voteKeep(item.questionId).then((result) => {
+      setKeepBusy(false);
+      setKeepError(result.ok ? null : result.error);
+    });
   };
 
   return (
@@ -514,7 +596,13 @@ function FlaggedCard({
       </ul>
 
       {item.corrections.map((c) => (
-        <CorrectionCard key={c.id} fix={c} user={user} onRequireAuth={onRequireAuth} />
+        <CorrectionCard
+          key={c.id}
+          fix={c}
+          user={user}
+          onRequireAuth={onRequireAuth}
+          live={[item.live]}
+        />
       ))}
 
       <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3.5 flex flex-col gap-2.5">
@@ -556,10 +644,10 @@ function FlaggedCard({
               </button>
               <button
                 onClick={keep}
-                disabled={voted}
+                disabled={voted || keepBusy}
                 title={voted ? 'You already voted' : 'Vote that this question is actually correct'}
                 className={`py-2.5 rounded-xl font-bold text-xs sm:text-sm border transition-colors flex items-center justify-center gap-1.5 ${
-                  voted
+                  voted || keepBusy
                     ? 'border-zinc-800 text-zinc-600 cursor-default'
                     : 'border-zinc-700 text-zinc-200 hover:bg-zinc-800'
                 }`}
@@ -594,6 +682,7 @@ function CorrectionEditor({
   onCancel: () => void;
   onDone: () => void;
 }) {
+  const { backend } = useBackend();
   const [reason, setReason] = useState('');
   const [topError, setTopError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -616,7 +705,7 @@ function CorrectionEditor({
     );
   }
 
-  const handleSubmit = (draft: QuestionDraft) => {
+  const handleSubmit = async (draft: QuestionDraft): Promise<ActionResult> => {
     if (draftsEqual(current, draft)) {
       const err = 'No changes yet — edit the question before submitting the fix.';
       setTopError(err);
@@ -627,7 +716,12 @@ function CorrectionEditor({
       setTopError(err);
       return { ok: false as const, error: err };
     }
-    const result = proposeCorrection(questionId, draft, reason);
+    if (!backend) {
+      const err = 'Still loading — try again in a moment.';
+      setTopError(err);
+      return { ok: false as const, error: err };
+    }
+    const result = await backend.proposeCorrection(questionId, draft, reason);
     if (result.ok) {
       setSubmitted(true);
       return { ok: true as const };
@@ -765,9 +859,10 @@ function AuthorBar({
   noun: string;
   error: string | null;
   onEdit: () => void;
-  onWithdraw: () => ActionResult;
+  onWithdraw: () => Promise<ActionResult>;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
   return (
     <div className="flex flex-wrap items-center gap-2 pt-1">
       {error && (
@@ -780,15 +875,22 @@ function AuthorBar({
           <span className="text-xs text-zinc-400">Withdraw this {noun}?</span>
           <button
             onClick={() => {
-              if (!onWithdraw().ok) setConfirming(false);
+              if (busy) return;
+              setBusy(true);
+              void onWithdraw().then((result) => {
+                setBusy(false);
+                if (!result.ok) setConfirming(false);
+              });
             }}
-            className="px-3 py-1.5 rounded-lg font-bold text-xs bg-red-600 hover:bg-red-500 text-white transition-colors"
+            disabled={busy}
+            className="px-3 py-1.5 rounded-lg font-bold text-xs bg-red-600 hover:bg-red-500 disabled:opacity-60 text-white transition-colors"
           >
             Yes, withdraw
           </button>
           <button
             onClick={() => setConfirming(false)}
-            className="px-3 py-1.5 rounded-lg font-semibold text-xs border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors"
+            disabled={busy}
+            className="px-3 py-1.5 rounded-lg font-semibold text-xs border border-zinc-700 text-zinc-300 hover:bg-zinc-800 disabled:opacity-60 transition-colors"
           >
             Keep it
           </button>
@@ -813,8 +915,9 @@ function AuthorBar({
   );
 }
 
-function RemoveFromPool({ onRemove }: { onRemove: () => { ok: boolean } }) {
+function RemoveFromPool({ onRemove }: { onRemove: () => Promise<ActionResult> }) {
   const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
   if (!confirming) {
     return (
       <button
@@ -830,16 +933,22 @@ function RemoveFromPool({ onRemove }: { onRemove: () => { ok: boolean } }) {
       <span className="text-xs text-zinc-400">Remove this live question from your pool?</span>
       <button
         onClick={() => {
-          const result = onRemove();
-          if (result.ok) setConfirming(false);
+          if (busy) return;
+          setBusy(true);
+          void onRemove().then((result) => {
+            setBusy(false);
+            if (result.ok) setConfirming(false);
+          });
         }}
-        className="px-3 py-1.5 rounded-lg font-bold text-xs bg-red-950/60 border border-red-800 text-red-300 hover:bg-red-900/60 transition-colors"
+        disabled={busy}
+        className="px-3 py-1.5 rounded-lg font-bold text-xs bg-red-950/60 border border-red-800 text-red-300 hover:bg-red-900/60 disabled:opacity-60 transition-colors"
       >
         Yes, remove
       </button>
       <button
         onClick={() => setConfirming(false)}
-        className="px-3 py-1.5 rounded-lg font-semibold text-xs border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors"
+        disabled={busy}
+        className="px-3 py-1.5 rounded-lg font-semibold text-xs border border-zinc-700 text-zinc-300 hover:bg-zinc-800 disabled:opacity-60 transition-colors"
       >
         Keep
       </button>
@@ -848,6 +957,7 @@ function RemoveFromPool({ onRemove }: { onRemove: () => { ok: boolean } }) {
 }
 
 function MineSubmissionCard({ submission: s }: { submission: Submission }) {
+  const { backend } = useBackend();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -865,8 +975,13 @@ function MineSubmissionCard({ submission: s }: { submission: Submission }) {
           excludeQuestionId={s.id}
           submitLabel="Save changes"
           topError={error}
-          onSubmit={(draft) => {
-            const result = editSubmission(s.id, draft);
+          onSubmit={async (draft) => {
+            if (!backend) {
+              const err = 'Still loading — try again in a moment.';
+              setError(err);
+              return { ok: false as const, error: err };
+            }
+            const result = await backend.editSubmission(s.id, draft);
             if (result.ok) {
               setEditing(false);
               setError(null);
@@ -902,8 +1017,13 @@ function MineSubmissionCard({ submission: s }: { submission: Submission }) {
           noun="submission"
           error={error}
           onEdit={() => setEditing(true)}
-          onWithdraw={() => {
-            const result = withdrawSubmission(s.id);
+          onWithdraw={async () => {
+            if (!backend) {
+              const err = 'Still loading — try again in a moment.';
+              setError(err);
+              return { ok: false as const, error: err };
+            }
+            const result = await backend.withdrawSubmission(s.id);
             if (!result.ok) setError(result.error);
             return result;
           }}
@@ -911,8 +1031,13 @@ function MineSubmissionCard({ submission: s }: { submission: Submission }) {
       )}
       {s.status === 'approved' && (
         <RemoveFromPool
-          onRemove={() => {
-            const result = removeSubmission(s.id);
+          onRemove={async () => {
+            if (!backend) {
+              const err = 'Still loading — try again in a moment.';
+              setError(err);
+              return { ok: false as const, error: err };
+            }
+            const result = await backend.removeSubmission(s.id);
             if (!result.ok) setError(result.error);
             return result;
           }}
@@ -927,9 +1052,9 @@ function MineSubmissionCard({ submission: s }: { submission: Submission }) {
   );
 }
 
-function MineCorrectionCard({ fix: c }: { fix: CorrectionProposal }) {
-  const { state } = useCommunity();
-  const target = resolveQuestion(state, c.questionId);
+function MineCorrectionCard({ fix: c, live }: { fix: CorrectionProposal; live: LiveQuestion[] }) {
+  const { backend } = useBackend();
+  const target = live.find((l) => l.question.id === c.questionId);
   const [editing, setEditing] = useState(false);
   const [reason, setReason] = useState(c.reason);
   const [error, setError] = useState<string | null>(null);
@@ -968,8 +1093,13 @@ function MineCorrectionCard({ fix: c }: { fix: CorrectionProposal }) {
           excludeQuestionId={c.questionId}
           submitLabel="Save changes"
           topError={error}
-          onSubmit={(draft) => {
-            const result = editCorrection(c.id, draft, reason);
+          onSubmit={async (draft) => {
+            if (!backend) {
+              const err = 'Still loading — try again in a moment.';
+              setError(err);
+              return { ok: false as const, error: err };
+            }
+            const result = await backend.editCorrection(c.id, draft, reason);
             if (result.ok) {
               setEditing(false);
               setError(null);
@@ -1004,8 +1134,13 @@ function MineCorrectionCard({ fix: c }: { fix: CorrectionProposal }) {
           noun="fix"
           error={error}
           onEdit={() => setEditing(true)}
-          onWithdraw={() => {
-            const result = withdrawCorrection(c.id);
+          onWithdraw={async () => {
+            if (!backend) {
+              const err = 'Still loading — try again in a moment.';
+              setError(err);
+              return { ok: false as const, error: err };
+            }
+            const result = await backend.withdrawCorrection(c.id);
             if (!result.ok) setError(result.error);
             return result;
           }}
@@ -1015,8 +1150,20 @@ function MineCorrectionCard({ fix: c }: { fix: CorrectionProposal }) {
   );
 }
 
-function MineSection({ onRequireAuth }: { onRequireAuth: () => void }) {
-  const { state, user } = useCommunity();
+function MineSection({
+  onRequireAuth,
+  user,
+  myWork,
+  myLoading,
+  live,
+}: {
+  onRequireAuth: () => void;
+  user: CommunityUser | null;
+  myWork: MyWork | null;
+  myLoading: boolean;
+  live: LiveQuestion[];
+}) {
+  const { kind } = useBackend();
   if (!user) {
     return (
       <EmptyState
@@ -1034,15 +1181,13 @@ function MineSection({ onRequireAuth }: { onRequireAuth: () => void }) {
     );
   }
 
-  const mySubs = state.submissions
-    .filter((s) => s.authorId === user.id)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const myFixes = state.corrections
-    .filter((c) => c.authorId === user.id)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const myReports = state.reports
-    .filter((r) => r.reporterId === user.id)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  if (myLoading || !myWork) {
+    return <PaneLoading />;
+  }
+
+  const mySubs = [...myWork.submissions].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const myFixes = [...myWork.corrections].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const myReports = [...myWork.reports].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const approvedSubs = mySubs.filter((s) => s.status === 'approved');
 
   if (mySubs.length + myFixes.length + myReports.length === 0) {
@@ -1067,7 +1212,7 @@ function MineSection({ onRequireAuth }: { onRequireAuth: () => void }) {
         </section>
       )}
 
-      {approvedSubs.length > 0 && (
+      {kind === 'local' && approvedSubs.length > 0 && (
         <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3 flex flex-col gap-2">
           <p className="text-xs text-zinc-400 leading-relaxed">
             <span className="font-bold text-zinc-200">Take them with you.</span> Export your{' '}
@@ -1077,7 +1222,7 @@ function MineSection({ onRequireAuth }: { onRequireAuth: () => void }) {
           </p>
           <button
             onClick={() => {
-              const payload = buildExportPayload(state, user.id);
+              const payload = buildExportPayload(getState(), user.id);
               const blob = new Blob([JSON.stringify(payload, null, 2)], {
                 type: 'application/json',
               });
@@ -1101,7 +1246,7 @@ function MineSection({ onRequireAuth }: { onRequireAuth: () => void }) {
             My fixes ({myFixes.length})
           </h3>
           {myFixes.map((c) => (
-            <MineCorrectionCard key={c.id} fix={c} />
+            <MineCorrectionCard key={c.id} fix={c} live={live} />
           ))}
         </section>
       )}
@@ -1112,7 +1257,7 @@ function MineSection({ onRequireAuth }: { onRequireAuth: () => void }) {
             My reports ({myReports.length})
           </h3>
           {myReports.map((r) => {
-            const target = resolveQuestion(state, r.questionId);
+            const target = live.find((l) => l.question.id === r.questionId);
             return (
               <div key={r.id} className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 flex flex-col gap-1.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">

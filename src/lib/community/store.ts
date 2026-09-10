@@ -5,6 +5,7 @@ import {
   type CommunityState,
   type CommunityUser,
   type CorrectionProposal,
+  type DuplicateHit,
   type FlaggedItem,
   type LiveQuestion,
   type QuestionDraft,
@@ -15,7 +16,7 @@ import {
   type Submission,
   type SubmitResult,
 } from './types';
-import { draftToQuestion, isDraftValid } from './validation';
+import { draftToQuestion, findDuplicateHits, isDraftValid } from './validation';
 import { isDifficulty } from './difficulty';
 
 /**
@@ -489,20 +490,7 @@ export function actionableReviewCount(state: CommunityState): number {
   return mySub + myFix + myFlag;
 }
 
-export interface DuplicateHit {
-  questionId: string;
-  prompt: string;
-  source: 'official' | 'community' | 'pending';
-}
-
-function promptTokens(prompt: string): string[] {
-  return prompt
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-}
+export type { DuplicateHit } from './types';
 
 /**
  * Possible duplicates of a prompt across the live pool + pending queue.
@@ -514,8 +502,6 @@ export function findDuplicates(
   prompt: string,
   excludeId?: string
 ): DuplicateHit[] {
-  const norm = promptTokens(prompt).join(' ');
-  if (norm.length < 12) return [];
   const candidates: DuplicateHit[] = [
     ...getLiveQuestions(state).map((l) => ({
       questionId: l.question.id,
@@ -528,31 +514,7 @@ export function findDuplicates(
       source: 'pending' as const,
     })),
   ];
-  const hits: DuplicateHit[] = [];
-  const aTokens = new Set(promptTokens(prompt));
-  for (const c of candidates) {
-    if (c.questionId === excludeId) continue;
-    const bNorm = promptTokens(c.prompt).join(' ');
-    if (!bNorm || bNorm.length < 12) continue;
-    if (bNorm === norm) {
-      hits.push(c);
-      continue;
-    }
-    const longer = bNorm.length >= norm.length ? bNorm : norm;
-    const shorter = bNorm.length >= norm.length ? norm : bNorm;
-    if (shorter.length >= 24 && longer.includes(shorter)) {
-      hits.push(c);
-      continue;
-    }
-    const bTokens = new Set(promptTokens(c.prompt));
-    if (aTokens.size >= 6 && bTokens.size >= 6) {
-      let inter = 0;
-      for (const t of aTokens) if (bTokens.has(t)) inter++;
-      const union = aTokens.size + bTokens.size - inter;
-      if (union > 0 && inter / union >= 0.8) hits.push(c);
-    }
-  }
-  return hits.slice(0, 5);
+  return findDuplicateHits(candidates, prompt, excludeId);
 }
 
 // ---------------------------------------------------------------------------
