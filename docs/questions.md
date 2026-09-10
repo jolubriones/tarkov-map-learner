@@ -12,8 +12,9 @@ three question kinds: `landmark_mc`, `compass_check`, `extract_logic`.
 
 1. Copy a nearby question of the same `type` and change the fields.
    Keep `id` unique, make `correctAnswer` exactly one of `options`,
-   pick a `difficulty` bin (`essential` | `enlightened` | `sherpa` |
-   `immortal` — see `community.md`), and always write an `explanation` +
+   pick a `difficulty` bin (`timmy` | `essential` | `enlightened` |
+   `sherpa` | `immortal` — see `community.md`), and always write an
+   `explanation` +
    `tip` (shown after answering).
 2. For `landmark_mc`, a photo is **required** — the picture is the
    question. Self-host it: drop the file in

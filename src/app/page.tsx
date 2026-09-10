@@ -61,6 +61,20 @@ const EMPTY_POOL: LiveQuestion[] = [];
 
 type View = 'drill' | 'submit' | 'review';
 
+// Deep-linkable views: #/submit and #/review are shareable links, and the
+// back button walks views. Hash-only, so the static export is unaffected.
+const VIEW_HASHES: Record<View, string> = {
+  drill: '#/drill',
+  submit: '#/submit',
+  review: '#/review',
+};
+
+function readViewHash(): View | null {
+  if (typeof window === 'undefined') return null;
+  const hash = window.location.hash;
+  return (Object.keys(VIEW_HASHES) as View[]).find((v) => VIEW_HASHES[v] === hash) ?? null;
+}
+
 // SSR-safe read of a persisted number (falls back when missing/invalid/blocked).
 function readStoredNumber(key: string, fallback: number): number {
   if (typeof window === 'undefined') return fallback;
@@ -264,6 +278,28 @@ export default function Home() {
     window.scrollTo({ top: 0 });
   }, [view]);
 
+  // Sync the view from the URL hash on load and on back/forward. Runs in
+  // an effect (never in render) so the server render always starts on
+  // drill and hydration never mismatches.
+  useEffect(() => {
+    const sync = () => {
+      const found = readViewHash();
+      if (found) setView(found);
+    };
+    sync();
+    window.addEventListener('hashchange', sync);
+    return () => window.removeEventListener('hashchange', sync);
+  }, []);
+
+  // View changes flow through here so the hash (and history) follows.
+  // The hashchange echo calls setView with the same value — React bails.
+  const goView = (next: View) => {
+    setView(next);
+    if (typeof window !== 'undefined' && window.location.hash !== VIEW_HASHES[next]) {
+      window.location.hash = VIEW_HASHES[next];
+    }
+  };
+
   // Cross-tab ELO sync: another tab's answers merge into this tab instead
   // of being overwritten by our next answer (same pattern as the store's
   // storage hook). The equality bail is load-bearing: without it, two open
@@ -437,8 +473,9 @@ export default function Home() {
           aria-label="Sections"
         >
           <button
-            onClick={() => setView('drill')}
+            onClick={() => goView('drill')}
             aria-current={view === 'drill' ? 'page' : undefined}
+            title="Answer rated drill questions"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
               view === 'drill' ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
             }`}
@@ -446,8 +483,9 @@ export default function Home() {
             <Crosshair className="w-4 h-4" /> Drill
           </button>
           <button
-            onClick={() => setView('submit')}
+            onClick={() => goView('submit')}
             aria-current={view === 'submit' ? 'page' : undefined}
+            title="Submit a drill question (sign-in required)"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
               view === 'submit' ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
             }`}
@@ -455,8 +493,9 @@ export default function Home() {
             <PlusCircle className="w-4 h-4" /> Submit
           </button>
           <button
-            onClick={() => setView('review')}
+            onClick={() => goView('review')}
             aria-current={view === 'review' ? 'page' : undefined}
+            title="Review community submissions"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors ${
               view === 'review' ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'
             }`}
@@ -471,12 +510,13 @@ export default function Home() {
         </nav>
 
         <button
-          onClick={() => setGuideSection('ranks')}
+          onClick={() => setGuideSection('drill')}
           title="How it works"
           aria-label="How it works"
-          className="p-2 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-colors"
+          className="flex items-center gap-1.5 p-2 sm:px-3 rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-colors"
         >
           <Info className="w-4 h-4" />
+          <span className="hidden sm:inline text-sm font-bold">Guide</span>
         </button>
 
         <button
@@ -503,7 +543,7 @@ export default function Home() {
 
       {view === 'submit' && (
         <div className={`w-full ${contentWidth} flex flex-col gap-4`}>
-          <SubmitPanel onRequireAuth={() => setAuthOpen(true)} onGoReview={() => setView('review')} />
+          <SubmitPanel onRequireAuth={() => setAuthOpen(true)} onGoReview={() => goView('review')} />
         </div>
       )}
 
@@ -586,7 +626,7 @@ export default function Home() {
                   Clear filters
                 </button>
                 <button
-                  onClick={() => setView('submit')}
+                  onClick={() => goView('submit')}
                   className="rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-bold text-zinc-200 hover:border-zinc-500 transition-colors"
                 >
                   Submit one
@@ -840,7 +880,11 @@ export default function Home() {
       )}
 
       {guideSection && (
-        <GuideDialog initialSection={guideSection} onClose={() => setGuideSection(null)} />
+        <GuideDialog
+          initialSection={guideSection}
+          highlightRank={rank.id}
+          onClose={() => setGuideSection(null)}
+        />
       )}
       {reportTarget && (
         <ReportDialog

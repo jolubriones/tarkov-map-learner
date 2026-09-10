@@ -271,11 +271,11 @@ async function runContract(create, label, suffix) {
   await check(`[${label}] elo: rated answers persist`, async () => {
     // frank (signed in) has no ratings on either backend — fresh vectors.
     const r = await b.answerRated('customs', 'essential', true);
-    assert.equal(r.delta, 12);
-    assert.equal(r.mapRating, 812);
+    assert.equal(r.delta, 31);
+    assert.equal(r.mapRating, 531);
     assert.equal(r.winStreak, 1);
     const elo = await b.readElo();
-    assert.deepEqual(elo.ratings.customs, { rating: 812, answered: 1 });
+    assert.deepEqual(elo.ratings.customs, { rating: 531, answered: 1 });
   });
 
   await check(`[${label}] uploadPhoto degrades cleanly without a browser`, async () => {

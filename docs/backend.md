@@ -32,7 +32,8 @@ are present, and skips otherwise.
 ## Schema
 
 `supabase/migrations/001_community.sql` (+ `002_community_audio.sql` for
-the trivia/audio types) is the whole hosted backend:
+the trivia/audio types, `003_timmy.sql` for the Timmy bin) is the whole
+hosted backend:
 tables, row-level-security, consensus triggers, the ELO RPC, and Storage
 policies. It mirrors `config.ts` / `difficulty.ts` deliberately — the
 database is the final authority once the app points at it. Consensus
@@ -53,8 +54,9 @@ Rules enforced where they belong:
 ## Your 30 minutes (whenever — nothing needed until then)
 
 1. Create a free Supabase project.
-2. Paste `supabase/migrations/001_community.sql` into the SQL editor,
-   run, then paste + run `supabase/migrations/002_community_audio.sql`.
+2. Paste `supabase/migrations/001_community.sql` into the SQL editor
+   and run it, then paste + run `002_community_audio.sql` and
+   `003_timmy.sql` the same way, in order.
 3. Auth → Sign In / Up → **turn email confirmation OFF** (the app
    signs users in immediately after signup; with confirmation on,
    signup returns "confirm your email" instead of a session).

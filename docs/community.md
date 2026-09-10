@@ -35,11 +35,12 @@ community grows without touching UI code.
 
 ## Difficulty bins + ELO
 
-Every question carries one of four bins, picked by its author and visible
+Every question carries one of five bins, picked by its author and visible
 everywhere (drill, preview, review queues):
 
 | Bin | Meaning | Question rating |
 |---|---|---|
+| Timmy | Fresh-spawn basics for players who don't know the maps at all yet — everyone starts here | 300 |
 | Essential | The bare minimum to enjoy Tarkov: know your spawn within seconds + the general direction of your extracts | 600 |
 | Enlightened | Beyond the basics: more maps, boss/PMC spawns, special extracts (car, co-op, no-backpack…) | 1100 |
 | Sherpa | Guide-tier: most hidden stash + quest locations | 1600 |
@@ -61,14 +62,15 @@ floored at 100 per map):
   drag it down, so specialists are never punished for maps they don't
   touch — and breadth shows as a visible "· N maps" count instead of
   a hidden tax.
-- **Ranks sit on round numbers**: Essential <1000, Enlightened <1500,
-  Sherpa <2000, Immortal beyond. Hitting 1000 *is* the rank-up; the
-  answer card celebrates map rank-ups, the rank pill tracks overall.
-- **Hot placement per map**: every map starts at 800 and its first 10
-  answers run at K=48 (then K=32) — fast placement, and underdog
-  jackpots up to +48 for swinging at hard bins early.
+- **Ranks sit on round numbers**: Timmy <600, Essential <1000,
+  Enlightened <1500, Sherpa <2000, Immortal beyond. Hitting 600
+  graduates you from Timmy; the answer card celebrates map rank-ups,
+  the rank pill tracks overall.
+- **Hot placement per map**: every map starts at 500 (Timmy) and its
+  first 10 answers run at K=48 (then K=32) — fast placement, and
+  underdog jackpots up to +48 for swinging at hard bins early.
 - **Exploration is safe**: below 1000 a map's losses count half, and
-  fresh maps start at 800 — trying a new map costs almost nothing.
+  fresh maps start at 500 — trying a new map costs almost nothing.
 - **Global streak juice**: +2 per consecutive win beyond the first
   (capped +10), surviving map switches; any loss resets it. The bonus
   amplifies earned gains only — grinding trivial wins pays just +1

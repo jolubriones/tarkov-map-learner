@@ -1,15 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { ClipboardCheck, Flag, PlusCircle, TrendingUp } from 'lucide-react';
+import { ClipboardCheck, Crosshair, Flag, PlusCircle, TrendingUp } from 'lucide-react';
 import { COMMUNITY_CONFIG as C } from '@/lib/community/config';
 import { DIFFICULTY_META, DIFFICULTY_ORDER } from '@/lib/community/difficulty';
 import { ELO_CONFIG } from '@/lib/community/elo';
+import type { QuestionDifficulty } from '@/lib/types';
 import { DifficultyBadge, Modal } from './ui';
 
-export type GuideSection = 'ranks' | 'submit' | 'review' | 'reports';
+export type GuideSection = 'drill' | 'ranks' | 'submit' | 'review' | 'reports';
 
 const TABS: { id: GuideSection; label: string; Icon: typeof Flag }[] = [
+  { id: 'drill', label: 'Drill', Icon: Crosshair },
   { id: 'ranks', label: 'Ranks', Icon: TrendingUp },
   { id: 'submit', label: 'Submit', Icon: PlusCircle },
   { id: 'review', label: 'Review', Icon: ClipboardCheck },
@@ -22,9 +24,12 @@ const TABS: { id: GuideSection; label: string; Icon: typeof Flag }[] = [
  */
 export default function GuideDialog({
   initialSection,
+  highlightRank,
   onClose,
 }: {
   initialSection: GuideSection;
+  /** The reader's current rank — its row lights up on the Ranks tab. */
+  highlightRank?: QuestionDifficulty;
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<GuideSection>(initialSection);
@@ -52,7 +57,8 @@ export default function GuideDialog({
       </div>
 
       <div className="mt-4 flex flex-col gap-3">
-        {tab === 'ranks' && <RanksGuide />}
+        {tab === 'drill' && <DrillGuide />}
+        {tab === 'ranks' && <RanksGuide highlight={highlightRank} />}
         {tab === 'submit' && <SubmitGuide />}
         {tab === 'review' && <ReviewGuide />}
         {tab === 'reports' && <ReportsGuide />}
@@ -79,13 +85,28 @@ function Bullets({ items }: { items: string[] }) {
   );
 }
 
-function RanksGuide() {
+function DrillGuide() {
+  return (
+    <Bullets
+      items={[
+        'Pick an answer, then Check Answer — correct feeds your streak, wrong costs a heart.',
+        'Three hearts per run. Lose them all and the raid fails — but ratings and best streaks are already banked.',
+        'Filter by bin or map above the drill card. Ratings carry over: skill is skill.',
+        'Every answer is an ELO match between that map and the question bin (see Ranks). Flagged questions pause rating but still cost hearts.',
+        'Miss one? The feedback card shows the explanation and the tip — that is the lesson. Re-drill until it sticks.',
+      ]}
+    />
+  );
+}
+
+function RanksGuide({ highlight }: { highlight?: QuestionDifficulty }) {
   return (
     <>
       <p className="text-sm text-zinc-400 leading-relaxed">
         Every map tracks its own rating — each answer moves only that map. Overall is your
         played maps&apos; average (new maps blend in over their first {ELO_CONFIG.overallBlendAnswers}{' '}
-        answers, so exploring never craters it); unplayed maps never drag it down.
+        answers, so exploring never craters it); unplayed maps never drag it down. Your rank
+        is highlighted.
       </p>
       <div className="flex flex-col gap-1.5">
         {DIFFICULTY_ORDER.map((id, i) => {
@@ -94,10 +115,13 @@ function RanksGuide() {
           const range = next
             ? `${meta.rankMin}–${DIFFICULTY_META[next].rankMin - 1}`
             : `${meta.rankMin}+`;
+          const yours = highlight === id;
           return (
             <div
               key={id}
-              className="flex items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-950/50 px-3 py-2"
+              className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 ${
+                yours ? 'border-emerald-700 bg-emerald-950/30' : 'border-zinc-800 bg-zinc-950/50'
+              }`}
             >
               <DifficultyBadge difficulty={id} />
               <span className="text-xs text-zinc-500">
@@ -139,9 +163,9 @@ function ReviewGuide() {
   return (
     <Bullets
       items={[
-        'New: judge submissions into the pool — or down.',
-        'Flagged: reported questions. Fix them, or verify they were fine.',
-        'Fixes: approve corrected versions — applying one patches the live question and resolves every report.',
+        'New holds fresh submissions: approve the good into the pool, reject the weak.',
+        'Flagged holds reported questions: propose a fix, or verify they were fine.',
+        'Fixes holds corrected versions — approving one patches the live question and resolves every report.',
         'One review per player · rejections need a short note.',
         'Track your submissions, fixes, and reports under Mine.',
       ]}

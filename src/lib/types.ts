@@ -6,7 +6,12 @@ export type QuestionType = 'landmark_mc' | 'compass_check' | 'extract_logic' | '
  * as the bin you're competitive in. Meta lives in
  * `src/lib/community/difficulty.ts`.
  */
-export type QuestionDifficulty = 'essential' | 'enlightened' | 'sherpa' | 'immortal';
+export type QuestionDifficulty =
+  | 'timmy'
+  | 'essential'
+  | 'enlightened'
+  | 'sherpa'
+  | 'immortal';
 
 export interface BaseQuestion {
   id: string;

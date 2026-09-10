@@ -17,7 +17,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROOT, transpileFiles } from './transpile.mjs';
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-const DIFFICULTIES = ['essential', 'enlightened', 'sherpa', 'immortal'];
+const DIFFICULTIES = ['timmy', 'essential', 'enlightened', 'sherpa', 'immortal'];
 const TYPES = ['landmark_mc', 'compass_check', 'extract_logic', 'trivia_mc', 'audio_mc'];
 const MEDIA_TIMEOUT_MS = 10000;
 const SKIP_IMAGES =

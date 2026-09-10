@@ -5,7 +5,7 @@ import type { QuestionDifficulty } from '@/lib/types';
  *
  * Every question (built-in or community-submitted) must carry one bin,
  * chosen by the author and visible to reviewers, who can dispute it via
- * the normal correction flow. The same four names rank players: your ELO
+ * the normal correction flow. The same five names rank players: your ELO
  * rating maps onto whichever bin you're competitive in (see `elo.ts`).
  */
 
@@ -23,6 +23,7 @@ export interface DifficultyMeta {
 }
 
 export const DIFFICULTY_ORDER: QuestionDifficulty[] = [
+  'timmy',
   'essential',
   'enlightened',
   'sherpa',
@@ -30,6 +31,15 @@ export const DIFFICULTY_ORDER: QuestionDifficulty[] = [
 ];
 
 export const DIFFICULTY_META: Record<QuestionDifficulty, DifficultyMeta> = {
+  timmy: {
+    id: 'timmy',
+    label: 'Timmy',
+    blurb: 'The absolute basics. Everyone starts here.',
+    description:
+      'Fresh-spawn knowledge for players who do not know the maps at all yet: the absolute basics. Every PMC starts here — win your way out.',
+    questionRating: 300,
+    rankMin: 0,
+  },
   essential: {
     id: 'essential',
     label: 'Essential',
@@ -37,7 +47,7 @@ export const DIFFICULTY_META: Record<QuestionDifficulty, DifficultyMeta> = {
     description:
       'The bare minimum to enjoy Tarkov: knowing where you spawned within a couple of seconds and the general direction of your extracts.',
     questionRating: 600,
-    rankMin: 0,
+    rankMin: 600,
   },
   enlightened: {
     id: 'enlightened',

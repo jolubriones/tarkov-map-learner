@@ -32,8 +32,8 @@ Set `NEXT_PUBLIC_SITE_URL` before launch — see [`docs/seo.md`](docs/seo.md).
 The drill pool is community-driven: signed-in players submit questions
 through a guided template, peers review them into the pool (3 approvals),
 and reports + corrections keep quality high afterward. Drills also track
-a persistent ELO skill rating across four difficulty bins
-(Essential → Immortal). See
+a persistent ELO skill rating across five difficulty bins
+(Timmy → Immortal). See
 [`docs/community.md`](docs/community.md) for the full ecosystem.
 
 The built-in bank lives in `src/lib/mockData.ts` and is validated before
@@ -60,3 +60,9 @@ The app is monetization-ready: ad slots and donation buttons are placed but
 disabled by default. Copy `.env.example` to `.env.local` and see
 [`docs/monetization.md`](docs/monetization.md) to preview placements or
 enable them.
+
+## Roadmap
+
+Hosted cutover, ten-map content, review decks, reputation, PWA — see
+[`docs/roadmap.md`](docs/roadmap.md) for where this is going (and the
+explicit non-goals).

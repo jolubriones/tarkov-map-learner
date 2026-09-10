@@ -261,28 +261,28 @@ check('demo account + localStorage persistence', () => {
 
 // 9 — ELO: per-map ratings, played-maps overall, global streaks.
 check('elo: per-map ratings, overall, streaks, migration', () => {
-  // Fresh: every map starts 800/0, overall 800, zero breadth.
+  // Fresh: every map starts 500/0 (Timmy), overall 500, zero breadth.
   const fresh = { ratings: {}, winStreak: 0 };
-  assert.deepEqual(elo.mapRatingFor(fresh, 'woods'), { rating: 800, answered: 0 });
-  assert.deepEqual(elo.overallRating(fresh), { rating: 800, mapsPlayed: 0 });
+  assert.deepEqual(elo.mapRatingFor(fresh, 'woods'), { rating: 500, answered: 0 });
+  assert.deepEqual(elo.overallRating(fresh), { rating: 500, mapsPlayed: 0 });
 
   // A customs win moves customs only; woods stays untouched.
   let r = elo.applyEloAnswer(fresh, 'customs', 'essential', true);
-  assert.equal(r.delta, 12);
-  assert.equal(r.mapRating, 812);
+  assert.equal(r.delta, 31);
+  assert.equal(r.mapRating, 531);
   assert.equal(r.mapAnswered, 1);
   assert.equal(r.winStreak, 1);
   assert.equal(r.bonus, 0);
-  assert.equal(r.overall.rating, 812);
+  assert.equal(r.overall.rating, 531);
   assert.equal(r.overall.mapsPlayed, 1);
-  assert.deepEqual(elo.mapRatingFor(r.state, 'woods'), { rating: 800, answered: 0 });
+  assert.deepEqual(elo.mapRatingFor(r.state, 'woods'), { rating: 500, answered: 0 });
 
   // Streaks are global: a woods win extends the customs streak.
   r = elo.applyEloAnswer(r.state, 'woods', 'essential', true);
   assert.equal(r.winStreak, 2);
   assert.equal(r.bonus, 2);
-  assert.equal(r.delta, 14);
-  assert.equal(r.overall.rating, 813);
+  assert.equal(r.delta, 33);
+  assert.equal(r.overall.rating, 532);
   assert.equal(r.overall.mapsPlayed, 2);
 
   // Protection is per map: softened below 1000, full stakes at 1000+.
@@ -338,8 +338,16 @@ check('elo: per-map ratings, overall, streaks, migration', () => {
   );
 
   // Round ranks and the per-map floor survive the split.
+  assert.equal(elo.rankForRating(100).id, 'timmy');
+  assert.equal(elo.rankForRating(599).id, 'timmy');
+  assert.equal(elo.rankForRating(600).id, 'essential');
   assert.equal(elo.rankForRating(999).id, 'essential');
   assert.equal(elo.rankForRating(1000).id, 'enlightened');
+  assert.deepEqual(elo.nextRankProgress(500), {
+    next: { id: 'essential', label: 'Essential', rankMin: 600 },
+    pointsAway: 100,
+  });
+  assert.deepEqual(elo.nextRankProgress(2100), { next: null, pointsAway: 0 });
   const floored = elo.applyEloAnswer(
     { ratings: { labs: { rating: 100, answered: 5 } }, winStreak: 0 },
     'labs',

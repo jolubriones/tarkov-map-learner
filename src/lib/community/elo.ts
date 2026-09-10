@@ -37,8 +37,8 @@ export function rankForRating(rating: number): {
 export const ELO_SCALE = 3;
 
 export const ELO_CONFIG = {
-  /** Fresh maps start here — under loss protection, so exploring is safe. */
-  startRating: 800,
+  /** Fresh maps start here — Timmy territory, under loss protection. */
+  startRating: 500,
   /** Swingy K while a map is placing (fewer answers than this). */
   provisionalK: 48,
   /** Answers before a map leaves placement. */
@@ -255,12 +255,12 @@ export function nextRankProgress(rating: number): {
   next: { id: string; label: string; rankMin: number } | null;
   pointsAway: number;
 } {
-  const thresholds = [
-    { id: 'enlightened', label: 'Enlightened', rankMin: 1000 },
-    { id: 'sherpa', label: 'Sherpa', rankMin: 1500 },
-    { id: 'immortal', label: 'Immortal', rankMin: 2000 },
-  ];
-  const next = thresholds.find((t) => rating < t.rankMin) ?? null;
+  // Derived from the ladder, never hardcoded: inserting a rung below
+  // automatically re-points everyone at the right next rank.
+  const nextId = DIFFICULTY_ORDER.find((id) => rating < DIFFICULTY_META[id].rankMin) ?? null;
+  const next = nextId
+    ? { id: nextId, label: DIFFICULTY_META[nextId].label, rankMin: DIFFICULTY_META[nextId].rankMin }
+    : null;
   return { next, pointsAway: next ? next.rankMin - rating : 0 };
 }
 

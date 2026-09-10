@@ -1,5 +1,5 @@
 import { COMMUNITY_CONFIG as C } from './config';
-import { DIFFICULTY_ORDER } from './difficulty';
+import { DIFFICULTY_META, DIFFICULTY_ORDER } from './difficulty';
 import { MAP_IDS } from './maps';
 import type { DuplicateHit, LiveQuestion, QuestionDraft, Submission } from './types';
 import type { Question, QuestionType } from '@/lib/types';
@@ -74,7 +74,9 @@ export function validateDraft(draft: QuestionDraft): DraftErrors {
   // The difficulty bin is mandatory — the author must place their own
   // question on the ladder (reviewers see it and can dispute it via fixes).
   if (!(DIFFICULTY_ORDER as readonly string[]).includes(draft.difficulty)) {
-    errors.difficulty = 'Pick a difficulty bin — Essential, Enlightened, Sherpa, or Immortal.';
+    // Derived from the ladder so new rungs appear here automatically.
+    const bins = DIFFICULTY_ORDER.map((id) => DIFFICULTY_META[id].label);
+    errors.difficulty = `Pick a difficulty bin — ${bins.slice(0, -1).join(', ')}, or ${bins[bins.length - 1]}.`;
   }
 
   const prompt = draft.prompt.trim();

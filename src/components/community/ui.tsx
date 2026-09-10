@@ -169,6 +169,7 @@ export function EmptyState({
 }
 
 const DIFFICULTY_STYLES: Record<QuestionDifficulty, string> = {
+  timmy: 'text-zinc-500 bg-zinc-900 border-zinc-800',
   essential: 'text-zinc-300 bg-zinc-800/80 border-zinc-700',
   enlightened: 'text-emerald-300 bg-emerald-950/60 border-emerald-800',
   sherpa: 'text-amber-300 bg-amber-950/60 border-amber-800',
