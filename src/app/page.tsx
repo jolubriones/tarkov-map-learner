@@ -1,44 +1,64 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle2, XCircle, RotateCcw, Heart, Flame, Flag } from 'lucide-react';
+import { CUSTOMS_DRILL_QUESTIONS } from '@/lib/mockData';
 
-const QUESTIONS = [
-  {
-    id: 'c-01',
-    prompt: 'Identify this landmark on Customs:',
-    imageUrl: 'https://images.unsplash.com/photo-1541888946425-d0fbb186f5f7?auto=format&fit=crop&w=800&q=80',
-    options: ['Big Red Warehouse', 'Crackhouse', '3-Story Dorms', 'New Gas Station'],
-    correctAnswer: 'Big Red Warehouse',
-    explanation: 'Big Red dominates the western industrial side of Customs near the river.'
-  },
-  {
-    id: 'c-02',
-    prompt: 'You are facing the front main entrance of 3-Story Dorms. Which cardinal direction are you looking?',
-    imageUrl: '',
-    options: ['N', 'E', 'S', 'W'],
-    correctAnswer: 'N',
-    explanation: 'Facing the front double doors of 3-Story Dorms points almost directly North.'
-  },
-  {
-    id: 'c-03',
-    prompt: 'You spawned at Crossroads (Far West). Which guaranteed PMC extract is OPEN for you?',
-    imageUrl: '',
-    options: ['Crossroads', 'Trailer Park Workers', 'ZB-1011', 'Smuggler\'s Boat'],
-    correctAnswer: 'ZB-1011',
-    explanation: 'Spawning on the far west side guarantees your main extraction will be on the far east at ZB-1011.'
+const STORAGE_KEY = 'tarkov-map-learner-storage';
+
+// Initialize from localStorage if available
+const initStreak = (): number => {
+  if typeof window !== 'undefined') {
+    const stored = localStorage.getItem(`${STORAGE_KEY}_streak`);
+    return stored ? parseInt(stored, 10) : 0;
   }
-];
+  return 0;
+};
+
+const initLives = (): number => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem(`${STORAGE_KEY}_lives`);
+    return stored ? parseInt(stored, 10) : 3;
+  }
+  return 3;
+};
+
+const initBestStreak = (): number => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem(`${STORAGE_KEY}_bestStreak`);
+    return stored ? parseInt(stored, 10) : 0;
+  }
+  return 0;
+};
+
+const initGamesPlayed = (): number => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem(`${STORAGE_KEY}_gamesPlayed`);
+    return stored ? parseInt(stored, 10) : 0;
+  }
+  return 0;
+};
 
 export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [lives, setLives] = useState(3);
-  const [streak, setStreak] = useState(0);
+  const [lives, setLives] = useState(initLives);
+  const [streak, setStreak] = useState(initStreak);
+  const [bestStreak, setBestStreak] = useState(initBestStreak);
+  const [gamesPlayed, setGamesPlayed] = useState(initGamesPlayed);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
 
-  const currentQ = QUESTIONS[currentIndex];
+  const totalQuestions = CUSTOMS_DRILL_QUESTIONS.length;
+  const currentQ = CUSTOMS_DRILL_QUESTIONS[currentIndex];
+
+  // Persist state to localStorage
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY}_streak`, streak.toString());
+    localStorage.setItem(`${STORAGE_KEY}_lives`, lives.toString());
+    localStorage.setItem(`${STORAGE_KEY}_bestStreak`, bestStreak.toString());
+    localStorage.setItem(`${STORAGE_KEY}_gamesPlayed`, gamesPlayed.toString());
+  }, [streak, lives, bestStreak, gamesPlayed]);
 
   const handleSelectOption = (option: string) => {
     if (isAnswerSubmitted || isGameOver) return;
@@ -53,12 +73,16 @@ export default function Home() {
 
     if (isCorrect) {
       setStreak((prev) => prev + 1);
+      // Update best streak if applicable
+      setBestStreak((prev) => Math.max(prev, streak + 1));
     } else {
       setStreak(0);
       setLives((prev) => {
         const next = prev - 1;
         if (next <= 0) {
           setIsGameOver(true);
+          // Games played count increases even when game over
+          setGamesPlayed((prev) => prev + 1);
         }
         return next;
       });
@@ -66,12 +90,14 @@ export default function Home() {
   };
 
   const handleNextQuestion = () => {
-    if (currentIndex < QUESTIONS.length - 1) {
+    if (currentIndex < totalQuestions - 1) {
       setCurrentIndex((prev) => prev + 1);
       setSelectedOption(null);
       setIsAnswerSubmitted(false);
     } else {
+      // Last question answered - game completes
       setIsGameOver(true);
+      setGamesPlayed((prev) => prev + 1);
     }
   };
 
@@ -79,25 +105,32 @@ export default function Home() {
     setCurrentIndex(0);
     setLives(3);
     setStreak(0);
+    setBestStreak((prev) => Math.max(prev, streak));
     setSelectedOption(null);
     setIsAnswerSubmitted(false);
     setIsGameOver(false);
+    setGamesPlayed((prev) => prev + 1);
   };
+
+  // Update best streak when game ends
+  useEffect(() => {
+    if (isGameOver && lives > 0) {
+      setBestStreak((prev) => Math.max(prev, streak));
+    }
+  }, [isGameOver, lives, streak]);
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-4 bg-zinc-950 text-zinc-100">
       <div className="w-full max-w-xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 sm:p-8 flex flex-col gap-6">
-        
         {/* Header Stats */}
         <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
           <div className="flex items-center gap-2 font-bold text-amber-500">
-            <Flame className="w-6 h-6 fill-amber-500 text-amber-500" />
+            <Flame className="w-6 h-6 fill-amber-500 text-amber-500" />{' '}
             <span className="text-lg">{streak} Streak</span>
           </div>
 
           <div className="text-sm font-semibold text-zinc-400 tracking-wider uppercase flex items-center gap-1">
-            <Flag className="w-4 h-4" />
-            Customs Drill
+            <Flag className="w-4 h-4" /> Customs Drill
           </div>
 
           <div className="flex items-center gap-1">
@@ -105,11 +138,23 @@ export default function Home() {
               <Heart
                 key={i}
                 className={`w-6 h-6 transition-colors ${
-                  i < lives ? 'fill-red-500 text-red-500' : 'text-zinc-700 fill-zinc-800'
+                  i < lives
+                    ? 'fill-red-500 text-red-500'
+                    : 'text-zinc-700 fill-zinc-800'
                 }`}
               />
             ))}
           </div>
+        </div>
+
+        {/* Game Info Bar */}
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <span className="text-sm text-zinc-500">
+            Q {currentIndex + 1} of {totalQuestions}
+          </span>
+          <span className="text-sm text-zinc-500">
+            Games: {gamesPlayed} | Best: {bestStreak}
+          </span>
         </div>
 
         {/* Game Over Screen */}
@@ -127,16 +172,15 @@ export default function Home() {
               onClick={handleRestart}
               className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all flex items-center gap-2"
             >
-              <RotateCcw className="w-5 h-5" />
-              Try Again
+              <RotateCcw className="w-5 h-5" /> Try Again
             </button>
           </div>
         ) : (
-          /* Question Content */
+          /* Question Content */}
           <div className="flex flex-col gap-6">
             <div className="space-y-3">
               <span className="text-xs font-bold text-zinc-500 tracking-widest uppercase">
-                Question {currentIndex + 1} of {QUESTIONS.length}
+                Question {currentIndex + 1} of {totalQuestions}
               </span>
               <h2 className="text-xl sm:text-2xl font-bold text-zinc-100">
                 {currentQ.prompt}
@@ -154,13 +198,13 @@ export default function Home() {
             )}
 
             {/* Answer Options */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {currentQ.options.map((option) => {
                 const isSelected = selectedOption === option;
                 const isCorrect = option === currentQ.correctAnswer;
-                
+
                 let buttonStyle = 'bg-zinc-800/80 border-zinc-700 text-zinc-200 hover:bg-zinc-800 hover:border-zinc-600';
-                
+
                 if (isAnswerSubmitted) {
                   if (isCorrect) {
                     buttonStyle = 'bg-emerald-950/80 border-emerald-500 text-emerald-300';
@@ -178,7 +222,7 @@ export default function Home() {
                     key={option}
                     onClick={() => handleSelectOption(option)}
                     disabled={isAnswerSubmitted}
-                    className={`p-4 rounded-xl font-semibold text-left border-b-4 transition-all duration-150 ${buttonStyle} active:border-b-0 active:translate-y-1`}
+                    className={`p-3 rounded-xl font-semibold text-left border-b-4 transition-all duration-150 ${buttonStyle} active:border-b-0 active:translate-y-1`}
                   >
                     {option}
                   </button>
