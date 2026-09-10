@@ -30,7 +30,7 @@ export default function DonateButton({
         rel="noopener noreferrer"
         title={`${message} on ${platform}`}
         aria-label={`${message} on ${platform}`}
-        className={`p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-amber-400 transition-colors ${className}`}
+        className={`p-2.5 sm:p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-amber-400 transition-colors ${className}`}
       >
         <HeartHandshake className="w-5 h-5" />
       </a>

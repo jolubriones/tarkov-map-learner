@@ -119,25 +119,27 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-4 bg-zinc-950 text-zinc-100">
-      <div className="w-full max-w-xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-6 sm:p-8 flex flex-col gap-6">
-        {/* Header Stats */}
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
-          <div className="flex items-center gap-2 font-bold text-amber-500">
-            <Flame className="w-6 h-6 fill-amber-500 text-amber-500" />
-            <span className="text-lg">{streak} Streak</span>
+    <main className="min-h-dvh flex flex-col items-center justify-center p-4 bg-zinc-950 text-zinc-100">
+      <div className="w-full max-w-xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+        {/* Header Stats — compresses gracefully on narrow phones */}
+        <div className="flex items-center justify-between gap-2 border-b border-zinc-800 pb-4">
+          <div className="flex items-center gap-2 font-bold text-amber-500 shrink-0">
+            <Flame className="w-5 h-5 sm:w-6 sm:h-6 fill-amber-500 text-amber-500" />
+            <span className="text-base sm:text-lg">
+              {streak} <span className="hidden min-[380px]:inline">Streak</span>
+            </span>
           </div>
 
-          <div className="text-sm font-semibold text-zinc-400 tracking-wider uppercase flex items-center gap-1">
-            <Flag className="w-4 h-4" /> Customs Drill
+          <div className="hidden min-[500px]:flex text-sm font-semibold text-zinc-400 tracking-wider uppercase items-center gap-1 min-w-0">
+            <Flag className="w-4 h-4 shrink-0" /> <span className="truncate">Customs Drill</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <div className="flex items-center gap-1">
               {Array.from({ length: MAX_LIVES }).map((_, i) => (
                 <Heart
                   key={i}
-                  className={`w-6 h-6 transition-colors ${
+                  className={`w-5 h-5 sm:w-6 sm:h-6 transition-colors ${
                     i < lives
                       ? 'fill-red-500 text-red-500'
                       : 'text-zinc-700 fill-zinc-800'
@@ -152,7 +154,7 @@ export default function Home() {
               title={muted ? 'Unmute sounds' : 'Mute sounds'}
               aria-label={muted ? 'Unmute sounds' : 'Mute sounds'}
               aria-pressed={muted}
-              className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
+              className="p-2.5 sm:p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-colors"
             >
               {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
             </button>
@@ -160,15 +162,15 @@ export default function Home() {
         </div>
 
         {/* Game Info Bar */}
-        <div className="flex items-center justify-between gap-4 mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 mb-4">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-zinc-500">
+            <span className="text-xs sm:text-sm text-zinc-500">
               Q {currentIndex + 1} of {totalQuestions}
             </span>
             {/* Renders only while a donor entitlement is active */}
             <DonorBadge />
           </div>
-          <span className="text-sm text-zinc-500">
+          <span className="text-xs sm:text-sm text-zinc-500">
             Games: {gamesPlayed} | Best: {bestStreak}
           </span>
         </div>
@@ -176,7 +178,7 @@ export default function Home() {
         {/* Game Over Screen */}
         {isGameOver ? (
           <div className="flex flex-col items-center justify-center py-8 text-center space-y-6">
-            <h2 className="text-3xl font-extrabold text-white">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
               {lives > 0 ? 'Drill Completed!' : 'MIA - Raid Failed'}
             </h2>
             <p className="text-zinc-400">
@@ -210,7 +212,7 @@ export default function Home() {
             </div>
 
             {currentQ.imageUrl && (
-              <div className="relative overflow-hidden rounded-xl border border-zinc-800 max-h-56">
+              <div className="relative overflow-hidden rounded-xl border border-zinc-800 max-h-44 sm:max-h-56">
                 <img
                   src={currentQ.imageUrl}
                   alt="Tarkov Drill Landmark"

@@ -130,7 +130,7 @@ function DonorDialog({ onClose }: { onClose: () => void }) {
                 autoComplete="off"
                 autoFocus
                 maxLength={64}
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-sm uppercase tracking-wider text-zinc-100 placeholder:normal-case placeholder:tracking-normal placeholder:text-zinc-500 focus:outline-none focus:border-amber-500"
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2.5 text-base sm:text-sm uppercase tracking-wider text-zinc-100 placeholder:normal-case placeholder:tracking-normal placeholder:text-zinc-500 focus:outline-none focus:border-amber-500"
               />
               {error && (
                 <p role="alert" className="text-xs text-red-400">
