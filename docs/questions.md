@@ -1,5 +1,9 @@
 # Questions: authoring & maintenance
 
+> Players don't need this file — they submit through the in-app template
+> and peer review does the rest. See [`community.md`](community.md). This
+> doc covers the built-in (official) bank that ships with the app.
+
 Question banks live in `src/lib/mockData.ts` as plain TypeScript arrays
 (currently `CUSTOMS_DRILL_QUESTIONS`). Types are in `src/lib/types.ts` —
 three question kinds: `landmark_mc`, `compass_check`, `extract_logic`.
@@ -8,7 +12,9 @@ three question kinds: `landmark_mc`, `compass_check`, `extract_logic`.
 
 1. Copy a nearby question of the same `type` and change the fields.
    Keep `id` unique, make `correctAnswer` exactly one of `options`,
-   and always write an `explanation` + `tip` (shown after answering).
+   pick a `difficulty` bin (`essential` | `enlightened` | `sherpa` |
+   `immortal` — see `community.md`), and always write an `explanation` +
+   `tip` (shown after answering).
 2. For `landmark_mc`, set `imageUrl` to a stable, hotlinkable photo
    (Pexels URLs with `?auto=compress&cs=tinysrgb&w=800` work well).
    The UI hides broken images gracefully, but validation will fail —
@@ -21,7 +27,7 @@ three question kinds: `landmark_mc`, `compass_check`, `extract_logic`.
 Errors (block the build): missing id/prompt, fewer than 2 options,
 `correctAnswer` not in `options`, duplicate ids (within and across
 banks), invalid compass values, `extract_logic` without `spawnLocation`,
-unreachable images.
+missing/invalid `difficulty`, unreachable images.
 
 Warnings (ship anyway): missing `explanation`/`tip`/`mapId`, duplicate
 options, landmark without image.

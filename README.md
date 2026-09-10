@@ -26,9 +26,16 @@ Set `NEXT_PUBLIC_SITE_URL` before launch — see [`docs/seo.md`](docs/seo.md).
 
 ## Questions
 
-Question banks live in `src/lib/mockData.ts` and are validated before
+The drill pool is community-driven: signed-in players submit questions
+through a guided template, peers review them into the pool (3 approvals),
+and reports + corrections keep quality high afterward. Drills also track
+a persistent ELO skill rating across four difficulty bins
+(Essential → Immortal). See
+[`docs/community.md`](docs/community.md) for the full ecosystem.
+
+The built-in bank lives in `src/lib/mockData.ts` and is validated before
 every build. See [`docs/questions.md`](docs/questions.md) to add or edit
-questions.
+built-in questions.
 
 ## Monetization (ads & donations)
 

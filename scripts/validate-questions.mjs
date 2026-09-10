@@ -12,7 +12,7 @@
  * TypeScript compiler (no new dependencies). Every exported array is
  * treated as a question bank and validated.
  */
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -23,6 +23,7 @@ const ts = require('typescript');
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+const DIFFICULTIES = ['essential', 'enlightened', 'sherpa', 'immortal'];
 const IMAGE_TIMEOUT_MS = 10000;
 const SKIP_IMAGES =
   process.argv.includes('--skip-images') ||
@@ -94,15 +95,35 @@ function validateBank(name, questions) {
       errors.push(`${where}: missing spawnLocation`);
     }
 
+    if (!DIFFICULTIES.includes(q.difficulty)) {
+      errors.push(`${where}: difficulty must be one of ${DIFFICULTIES.join(', ')}`);
+    }
+
     if (!q.mapId) warnings.push(`${where}: missing mapId`);
     if (!q.explanation) warnings.push(`${where}: missing explanation`);
     if (!q.tip) warnings.push(`${where}: missing tip`);
     if (q.type === 'landmark_mc' && !q.imageUrl) {
-      warnings.push(`${where}: landmark without image`);
+      errors.push(`${where}: landmark without image — the picture is the question`);
     }
   });
 
   return { errors, warnings };
+}
+
+/** JPEG/PNG/GIF/WEBP magic bytes (photos only — same rule as the merge script). */
+function sniffImageExt(buf) {
+  if (buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpg';
+  if (buf.length > 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47)
+    return 'png';
+  if (buf.length > 4 && buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38)
+    return 'gif';
+  if (
+    buf.length > 12 &&
+    buf.toString('ascii', 0, 4) === 'RIFF' &&
+    buf.toString('ascii', 8, 12) === 'WEBP'
+  )
+    return 'webp';
+  return null;
 }
 
 /** True when the URL serves an image (follows redirects, 10s timeout). */
@@ -151,6 +172,17 @@ async function main() {
     for (const [, questions] of banks) {
       for (const q of questions) {
         if (!q?.imageUrl) continue;
+        if (q.imageUrl.startsWith('/images/')) {
+          const full = join(ROOT, 'public', q.imageUrl);
+          if (!existsSync(full) || !statSync(full).isFile()) {
+            errors.push(`${q.id}: self-hosted image missing (${q.imageUrl})`);
+          } else if (!sniffImageExt(readFileSync(full))) {
+            errors.push(`${q.id}: self-hosted file is not a photo (${q.imageUrl})`);
+          } else {
+            console.log(`  ok ${q.id} (self-hosted)`);
+          }
+          continue;
+        }
         try {
           if (await checkImageUrl(q.imageUrl)) {
             console.log(`  ok ${q.id}`);

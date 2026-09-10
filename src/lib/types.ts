@@ -1,9 +1,18 @@
 export type QuestionType = 'landmark_mc' | 'compass_check' | 'extract_logic';
 
+/**
+ * Difficulty bins — required on every question (built-in and community).
+ * Doubles as the player skill ladder: your ELO rank carries the same name
+ * as the bin you're competitive in. Meta lives in
+ * `src/lib/community/difficulty.ts`.
+ */
+export type QuestionDifficulty = 'essential' | 'enlightened' | 'sherpa' | 'immortal';
+
 export interface BaseQuestion {
   id: string;
   mapId: string;
   type: QuestionType;
+  difficulty: QuestionDifficulty;
   prompt: string;
   imageUrl?: string;
   explanation?: string;
