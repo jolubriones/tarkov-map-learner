@@ -12,12 +12,15 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000) to run drills.
 Edit `src/app/page.tsx` — the page auto-updates.
 
-| Script        | What it does              |
-| ------------- | ------------------------- |
-| `npm run dev` | Start the dev server      |
-| `npm run build` | Production build       |
-| `npm run start` | Serve the production build |
-| `npm run lint`  | Run ESLint             |
+| Script                 | What it does                                   |
+| ---------------------- | ---------------------------------------------- |
+| `npm run dev`          | Start the dev server                           |
+| `npm run build`        | Validate the bank, then production build       |
+| `npm run start`        | Serve the production build                     |
+| `npm run lint`         | Run ESLint                                     |
+| `npm run validate`     | Check the built-in question bank               |
+| `npm run test:community` | Run the community/ELO logic suite            |
+| `npm run merge -- file` | Merge a player export into the bank (curator) |
 
 ## SEO
 

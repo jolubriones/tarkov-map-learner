@@ -127,6 +127,10 @@ check('seed: pending submissions, flagged question, pending fix', () => {
   assert.ok(store.pendingSubmissions(s).length >= 2, 'expected seeded pending submissions');
   assert.ok(store.isFlagged(s, 'c-12'), 'expected c-12 to be flagged by seed report');
   assert.ok(store.pendingCorrections(s).length >= 1, 'expected seeded pending fix');
+  // Seeds present as demos, never as peers.
+  assert.ok(s.submissions.every((x) => x.seeded === true), 'expected seed submissions marked');
+  assert.ok(s.corrections.every((x) => x.seeded === true), 'expected seed fixes marked');
+  assert.equal(store.resolveQuestion(s, 'u-seed-crackhouse').seeded, true);
 });
 
 // 2 — accounts.
@@ -271,7 +275,7 @@ check('elo: per-map ratings, overall, streaks, migration', () => {
   // Fresh: every map starts 800/0, overall 800, zero breadth.
   const fresh = { ratings: {}, winStreak: 0 };
   assert.deepEqual(elo.mapRatingFor(fresh, 'woods'), { rating: 800, answered: 0 });
-  assert.deepEqual(elo.overallRating(fresh), { rating: 800, mapsPlayed: 0, mapsEstablished: 0 });
+  assert.deepEqual(elo.overallRating(fresh), { rating: 800, mapsPlayed: 0 });
 
   // A customs win moves customs only; woods stays untouched.
   let r = elo.applyEloAnswer(fresh, 'customs', 'essential', true);
@@ -306,12 +310,33 @@ check('elo: per-map ratings, overall, streaks, migration', () => {
   assert.equal(cold.winStreak, 0);
   assert.equal(cold.bonus, 0);
 
-  // Established maps rule the overall; dabbling doesn't dilute it.
+  // Streaks can't manufacture gains: a trivial win pays +1, bonus ignored.
+  const farm = elo.applyEloAnswer(
+    { ratings: { customs: { rating: 2100, answered: 50 } }, winStreak: 5 },
+    'customs',
+    'essential',
+    true
+  );
+  assert.equal(farm.delta, 1);
+  assert.equal(farm.bonus, 0);
+  assert.equal(farm.winStreak, 6);
+
+  // New maps blend in gradually — no cliff when the 10th answer lands.
   const specialist = {
     ratings: { customs: { rating: 2000, answered: 100 }, woods: { rating: 900, answered: 3 } },
     winStreak: 0,
   };
-  assert.deepEqual(elo.overallRating(specialist), { rating: 2000, mapsPlayed: 2, mapsEstablished: 1 });
+  assert.deepEqual(elo.overallRating(specialist), { rating: 1746, mapsPlayed: 2 });
+  const nine = {
+    ratings: { customs: { rating: 2000, answered: 100 }, woods: { rating: 900, answered: 9 } },
+    winStreak: 0,
+  };
+  const ten = {
+    ratings: { customs: { rating: 2000, answered: 100 }, woods: { rating: 900, answered: 10 } },
+    winStreak: 0,
+  };
+  assert.equal(elo.overallRating(nine).rating, 1479);
+  assert.equal(elo.overallRating(ten).rating, 1450);
   const generalist = {
     ratings: { customs: { rating: 1600, answered: 20 }, woods: { rating: 1200, answered: 12 } },
     winStreak: 0,
@@ -418,6 +443,34 @@ check('author tools: edit restarts review, withdraw removes', () => {
   assert.equal(fix.draft.mapId, 'woods');
   assert.equal(store.withdrawCorrection(c.id).ok, true);
   assert.equal(store.getState().corrections.find((x) => x.id === c.id), undefined);
+});
+
+// 11b — authors can remove their own live questions; orphaned fixes die quietly.
+check('author tools: remove live work, fixes on removed targets never apply', () => {
+  // Gates: live-only, own-only.
+  store.signIn('alice', 'secret12');
+  const pd = store.submitQuestion({ ...DRAFT, prompt: 'You spawned at Remove Gate. Which extract is OPEN?' });
+  assert.equal(pd.ok, true);
+  assert.match(store.removeSubmission(pd.id).error ?? '', /live/);
+  store.signIn('bob', 'secret12');
+  assert.match(store.removeSubmission('u-seed-crackhouse').error ?? '', /own/);
+  // A pending fix against a removed question approves cleanly but applies nothing.
+  const fx = store.proposeCorrection(
+    globalThis.__subId,
+    { ...DRAFT, mapId: 'customs', prompt: 'You spawned at Fix Then Remove. Which extract is OPEN?', difficulty: 'essential' },
+    'testing fixes on removed questions here'
+  );
+  assert.equal(fx.ok, true);
+  store.signIn('alice', 'secret12');
+  assert.equal(store.removeSubmission(globalThis.__subId).ok, true);
+  assert.equal(store.resolveQuestion(store.getState(), globalThis.__subId), null);
+  for (const name of ['carol', 'dave', 'alice']) {
+    store.signIn(name, 'secret12');
+    assert.equal(store.reviewCorrection(fx.id, 'approve').ok, true);
+  }
+  const dead = store.getState();
+  assert.equal(dead.corrections.find((x) => x.id === fx.id).status, 'approved');
+  assert.equal(dead.overrides[globalThis.__subId], undefined); // no zombie question
 });
 
 // 12 — duplicate detection surfaces exact + near matches (never blocks).

@@ -25,11 +25,11 @@ export function rankForRating(rating: number): {
  * Per-map ELO with a played-maps overall.
  *
  * Every map tracks its own rating: each answer is a match between that
- * map's rating and the question's bin rating. The overall is the mean of
- * established maps (10+ rated answers) — or of played maps while none are
- * established — so specialists are never punished for maps they don't
- * touch, and unplayed maps never drag the overall down. Breadth shows as
- * a visible "· N maps" count instead of a hidden tax.
+ * map's rating and the question's bin rating. The overall is a blended
+ * mean of played maps: each map's weight ramps 0 → 1 over its first 10
+ * rated answers, so dabbling in a weak map bends the overall instead of
+ * cliff-diving it, and unplayed maps never drag it down. Breadth shows
+ * as a visible "· N maps" count instead of a hidden tax.
  *
  * The fun rules run per map (placement, protection, floor); the win
  * streak stays global so mixed-map sessions keep their momentum.
@@ -55,8 +55,8 @@ export const ELO_CONFIG = {
   minWinGain: 1,
   /** Ratings never drop below this. */
   floor: 100,
-  /** A map counts as established toward the overall past this many answers. */
-  establishedAnswers: 10,
+  /** A map's overall weight ramps 0 → 1 over its first this-many answers. */
+  overallBlendAnswers: 10,
 } as const;
 
 export interface MapRating {
@@ -73,7 +73,6 @@ export interface EloState {
 export interface OverallRating {
   rating: number;
   mapsPlayed: number;
-  mapsEstablished: number;
 }
 
 export interface EloResult {
@@ -123,10 +122,16 @@ export function applyEloAnswer(
   let winStreak = 0;
   if (correct) {
     winStreak = priorStreak + 1;
-    // Streaks juice consecutive wins: the 2nd win in a row earns +2, then
-    // +4, capped at +10. The bonus can never flip a win negative.
-    bonus = Math.min(winStreak - 1, ELO_CONFIG.maxStreakBonusSteps) * ELO_CONFIG.streakBonusPerWin;
-    raw = Math.max(ELO_CONFIG.minWinGain, raw + bonus);
+    // Streaks amplify EARNED gains only: the bonus (2nd win +2, then +4,
+    // capped at +10) rides on top of a positive matchup result. Grinding
+    // trivial wins pays just the +1 floor no matter the streak — the
+    // flame is juice for real wins, not a farming multiplier.
+    if (raw > 0) {
+      bonus =
+        Math.min(winStreak - 1, ELO_CONFIG.maxStreakBonusSteps) * ELO_CONFIG.streakBonusPerWin;
+      raw += bonus;
+    }
+    raw = Math.max(ELO_CONFIG.minWinGain, raw);
   } else if (prev.rating < ELO_CONFIG.lossProtectionBelow) {
     // Tutorial protection: below 1000 the map is still placing, so losses
     // count half. The ceiling keeps it honest (a −1 stays a −1).
@@ -156,29 +161,30 @@ function mean(values: number[]): number {
 }
 
 /**
- * Overall = mean of established maps (10+ answers); while none are
- * established, the mean of played maps; before anything is played, the
- * seed (every migrated map holds the legacy rating) or the start rating.
+ * Overall = played maps' mean, weighted by how established each map is:
+ * a map's weight ramps 0 → 1 over its first `overallBlendAnswers`
+ * answers. Before anything is played, the seed (every migrated map holds
+ * the legacy rating) or the start rating.
  */
 export function overallRating(state: EloState): OverallRating {
   const played = Object.values(state.ratings)
     .map((r) => ({ rating: sanitizeRating(r.rating), answered: sanitizeCount(r.answered) }))
     .filter((r) => r.answered > 0);
-  const established = played.filter((r) => r.answered >= ELO_CONFIG.establishedAnswers);
-  const pool = established.length > 0 ? established : played;
-  if (pool.length === 0) {
+  if (played.length === 0) {
     const seeds = Object.values(state.ratings).map((r) => sanitizeRating(r.rating));
     return {
       rating: seeds.length > 0 ? Math.round(mean(seeds)) : ELO_CONFIG.startRating,
       mapsPlayed: 0,
-      mapsEstablished: 0,
     };
   }
-  return {
-    rating: Math.round(mean(pool.map((r) => r.rating))),
-    mapsPlayed: played.length,
-    mapsEstablished: established.length,
-  };
+  let weighted = 0;
+  let weights = 0;
+  for (const r of played) {
+    const w = Math.min(1, r.answered / ELO_CONFIG.overallBlendAnswers);
+    weighted += r.rating * w;
+    weights += w;
+  }
+  return { rating: Math.round(weighted / weights), mapsPlayed: played.length };
 }
 
 /** Lifetime rated answers across every map. */

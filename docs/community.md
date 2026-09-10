@@ -51,11 +51,12 @@ Every map tracks its own rating: each answer is a match between that
 map's rating and the question's bin rating (standard formula, integers,
 floored at 100 per map):
 
-- **Overall = played maps' average**: the mean of established maps
-  (10+ rated answers), or of played maps while none are established.
-  Unplayed maps never drag it down, so specialists are never punished
-  for maps they don't touch — and breadth shows as a visible
-  "· N maps" count instead of a hidden tax.
+- **Overall = played maps' blended average**: each map's weight ramps
+  0 → 1 over its first 10 rated answers, so dabbling in a weak map
+  bends the overall instead of cliff-diving it. Unplayed maps never
+  drag it down, so specialists are never punished for maps they don't
+  touch — and breadth shows as a visible "· N maps" count instead of
+  a hidden tax.
 - **Ranks sit on round numbers**: Essential <1000, Enlightened <1500,
   Sherpa <2000, Immortal beyond. Hitting 1000 *is* the rank-up; the
   answer card celebrates map rank-ups, the rank pill tracks overall.
@@ -65,9 +66,14 @@ floored at 100 per map):
 - **Exploration is safe**: below 1000 a map's losses count half, and
   fresh maps start at 800 — trying a new map costs almost nothing.
 - **Global streak juice**: +2 per consecutive win beyond the first
-  (capped +10), surviving map switches; any loss resets it.
+  (capped +10), surviving map switches; any loss resets it. The bonus
+  amplifies earned gains only — grinding trivial wins pays just +1
+  no matter the streak, so the flame is juice, not a farm.
 - **No hollow wins**: victories always pay at least +1, and the
   displayed delta is honest (the floor eats the rest).
+- **Flagged questions pause rating**: while a question is under
+  community review, answers still cost lives and build streaks, but
+  move no ELO — the app never bets your rating on a disputed answer.
 
 Drills filter by bin and by map (multi-select chips, persisted); a map
 pick with no questions yet renders an empty panel with a shortcut to
@@ -108,6 +114,11 @@ Rules that keep the bank whole:
 - Nothing ships without a maintainer seeing the pixels — moderation
   by construction. (The pre-merge Pexels stand-ins and c-05's AI
   stand-in get replaced with real screenshots through this same flow.)
+- After updating to a bank that merged your export, you'll see both
+  your local copy and the new official copy (a known cosmetic dupe —
+  there is no channel back to mark yours merged). Pull yours via
+  Review → Mine → “Remove from pool” and the official one stands
+  alone. Removing is author-only and never touches the bank.
 
 ## Rules that keep it honest
 
@@ -119,9 +130,11 @@ Rules that keep the bank whole:
 - **Rejections need a short note** so authors learn instead of guessing
   (enforced in the store, not just the UI), and “Something else” reports
   must describe the problem.
-- **Flagged questions stay playable**, just visibly marked. A single report
-  can never grief content out of the pool — removal takes consensus via an
-  approved fix, and bad reports get overruled by 3 "looks correct" votes.
+- **Flagged questions stay playable**, just visibly marked — and unrated
+  while disputed. A single report can never grief content out of the pool:
+  removal takes consensus via an approved fix (or the author's own
+  “Remove from pool”), and bad reports get overruled by 3 “looks correct”
+  votes.
 - **Corrections are peer-reviewed too** (3 approvals to apply), on both
   official and community questions. Approving a fix patches the live
   question and resolves all its open reports at once.

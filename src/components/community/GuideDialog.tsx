@@ -84,7 +84,8 @@ function RanksGuide() {
     <>
       <p className="text-sm text-zinc-400 leading-relaxed">
         Every map tracks its own rating — each answer moves only that map. Overall is your
-        played maps&apos; average; unplayed maps never drag it down.
+        played maps&apos; average (new maps blend in over their first {ELO_CONFIG.overallBlendAnswers}{' '}
+        answers, so exploring never craters it); unplayed maps never drag it down.
       </p>
       <div className="flex flex-col gap-1.5">
         {DIFFICULTY_ORDER.map((id, i) => {
@@ -111,7 +112,8 @@ function RanksGuide() {
         items={[
           `Every map starts at ${ELO_CONFIG.startRating}; its first ${ELO_CONFIG.provisionalGames} answers swing bigger so it places fast.`,
           `Below ${ELO_CONFIG.lossProtectionBelow}, a map's losses count half — exploring new maps is safe.`,
-          `Win streaks are global: +${ELO_CONFIG.streakBonusPerWin} per consecutive win (max +${ELO_CONFIG.maxStreakBonusSteps * ELO_CONFIG.streakBonusPerWin}), even across maps.`,
+          `Win streaks are global: +${ELO_CONFIG.streakBonusPerWin} per consecutive win (max +${ELO_CONFIG.maxStreakBonusSteps * ELO_CONFIG.streakBonusPerWin}) on top of earned gains, even across maps.`,
+          'Flagged questions pause rating — nothing moves while a question is under review.',
           `Wins always pay at least +${ELO_CONFIG.minWinGain}; no map ever drops below ${ELO_CONFIG.floor}.`,
         ]}
       />

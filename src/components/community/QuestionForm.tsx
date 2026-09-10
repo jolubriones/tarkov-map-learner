@@ -150,7 +150,7 @@ export default function QuestionForm({
 
   const handleSubmit = () => {
     if (!difficulty) {
-      setErrors({ difficulty: 'Pick the difficulty bin your question belongs in.' });
+      setErrors((prev) => ({ ...prev, difficulty: 'Pick the difficulty bin your question belongs in.' }));
       return;
     }
     const found = validateDraft(draft);

@@ -1,6 +1,7 @@
 import {
   CheckCircle2,
   XCircle,
+  Flag,
   Flame,
   Lightbulb,
   BookOpen,
@@ -18,6 +19,7 @@ interface AnswerFeedbackProps {
   isCorrect: boolean;
   /** ELO swing: the map's before/after, the overall before/after, + streak juice. */
   elo?: {
+
     mapId: string;
     before: number;
     after: number;
@@ -26,6 +28,8 @@ interface AnswerFeedbackProps {
     bonus: number;
     winStreak: number;
   };
+  /** Flagged questions pause rating — show the unrated row instead of a swing. */
+  unrated?: boolean;
 }
 
 /**
@@ -35,13 +39,15 @@ interface AnswerFeedbackProps {
  *   the correct answer, shows what the user picked, the explanation, and a
  *   tip for how to get it right next time.
  * - Correct answers: reinforces learning with the explanation + tip too.
- * - Both: show the ELO swing, since harder bins move the rating more.
+ * - Both: show the ELO swing, since harder bins move the rating more —
+ *   unless the question is under community review (then rating pauses).
  */
 export default function AnswerFeedback({
   question,
   selectedOption,
   isCorrect,
   elo,
+  unrated,
 }: AnswerFeedbackProps) {
   const delta = elo ? elo.after - elo.before : 0;
   // Overall rank-ups are the big moment; map rank-ups are the frequent one.
@@ -123,8 +129,18 @@ export default function AnswerFeedback({
         </div>
       )}
 
-      {/* ELO swing */}
-      {elo && overallAfter && celebrationRank && (
+      {/* ELO swing — or the unrated row while the question is disputed */}
+      {unrated ? (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-800/60 bg-amber-950/30 px-3 py-2">
+          <Flag className="w-4 h-4 text-amber-300 shrink-0" />
+          <span className="text-xs text-amber-100/90">
+            Unrated — this question is under community review. Lives and streaks still count.
+          </span>
+        </div>
+      ) : (
+        elo &&
+        overallAfter &&
+        celebrationRank && (
         <div className="flex items-center justify-between gap-2 rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2">
           <span className="text-xs text-zinc-400">
             Overall{' '}
@@ -160,6 +176,7 @@ export default function AnswerFeedback({
             )}
           </div>
         </div>
+        )
       )}
     </div>
   );

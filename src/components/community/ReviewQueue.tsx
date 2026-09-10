@@ -23,6 +23,7 @@ import {
   getFlaggedItems,
   pendingCorrections,
   pendingSubmissions,
+  removeSubmission,
   resolveQuestion,
   reviewCorrection,
   reviewSubmission,
@@ -193,7 +194,7 @@ function ReviewBlock({
   const mine = user ? reviews.find((r) => r.reviewerId === user.id) : undefined;
 
   const act = (decision: 'approve' | 'reject') => {
-    if (decision === 'reject' && comment.trim().length < 4) {
+    if (decision === 'reject' && comment.trim().length < C.minRejectionNoteLength) {
       setError('Rejections need a short note so the author knows what to fix.');
       return;
     }
@@ -327,6 +328,11 @@ function SubmissionCard({
         <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-sky-300 bg-sky-950/60 border border-sky-800 rounded-full px-2.5 py-1">
           <ClipboardCheck className="w-3.5 h-3.5" /> New submission
         </span>
+        {submission.seeded && (
+          <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider text-zinc-500 border border-zinc-800 rounded-full px-2 py-0.5">
+            demo
+          </span>
+        )}
         <AuthorLine name={submission.authorName} createdAt={submission.createdAt} />
       </div>
       <QuestionPreview draft={submission.draft} />
@@ -385,6 +391,11 @@ function CorrectionCard({
         <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-violet-300 bg-violet-950/60 border border-violet-800 rounded-full px-2.5 py-1">
           <Wrench className="w-3.5 h-3.5" /> Proposed fix
         </span>
+        {fix.seeded && (
+          <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider text-zinc-500 border border-zinc-800 rounded-full px-2 py-0.5">
+            demo
+          </span>
+        )}
         <AuthorLine name={fix.authorName} createdAt={fix.createdAt} />
       </div>
 
@@ -802,6 +813,40 @@ function AuthorBar({
   );
 }
 
+function RemoveFromPool({ onRemove }: { onRemove: () => { ok: boolean } }) {
+  const [confirming, setConfirming] = useState(false);
+  if (!confirming) {
+    return (
+      <button
+        onClick={() => setConfirming(true)}
+        className="self-start text-xs font-semibold text-zinc-600 hover:text-red-400 transition-colors"
+      >
+        Remove from pool
+      </button>
+    );
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs text-zinc-400">Remove this live question from your pool?</span>
+      <button
+        onClick={() => {
+          const result = onRemove();
+          if (result.ok) setConfirming(false);
+        }}
+        className="px-3 py-1.5 rounded-lg font-bold text-xs bg-red-950/60 border border-red-800 text-red-300 hover:bg-red-900/60 transition-colors"
+      >
+        Yes, remove
+      </button>
+      <button
+        onClick={() => setConfirming(false)}
+        className="px-3 py-1.5 rounded-lg font-semibold text-xs border border-zinc-700 text-zinc-300 hover:bg-zinc-800 transition-colors"
+      >
+        Keep
+      </button>
+    </div>
+  );
+}
+
 function MineSubmissionCard({ submission: s }: { submission: Submission }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -863,6 +908,20 @@ function MineSubmissionCard({ submission: s }: { submission: Submission }) {
             return result;
           }}
         />
+      )}
+      {s.status === 'approved' && (
+        <RemoveFromPool
+          onRemove={() => {
+            const result = removeSubmission(s.id);
+            if (!result.ok) setError(result.error);
+            return result;
+          }}
+        />
+      )}
+      {s.status !== 'pending' && error && (
+        <p role="alert" className="text-xs text-red-400">
+          {error}
+        </p>
       )}
     </div>
   );

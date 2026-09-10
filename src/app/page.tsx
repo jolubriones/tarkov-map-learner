@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   RotateCcw,
   Heart,
@@ -156,6 +156,10 @@ export default function Home() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
+  // Shuffled run order: a fresh permutation per run, fixed for the run.
+  // Null until the first client effect (SSR-safe: no hydration mismatch).
+  const [runId, setRunId] = useState(0);
+  const [order, setOrder] = useState<number[] | null>(null);
   // Lazy init from storage (same pattern as above; isMuted is SSR-safe)
   const [muted, setMutedState] = useState(() => isMuted());
   // Skill rating: every answer is an ELO match vs the question's bin.
@@ -198,11 +202,31 @@ export default function Home() {
   // The drill mechanics always have a question to point at; the empty-map
   // panel swaps in for the card, so this fallback never renders.
   const drillPool = activePool.length > 0 ? activePool : pool;
-  const totalQuestions = drillPool.length;
+  // Per-run shuffle: re-rolled on every reset (client-only effect, so the
+  // server render and first paint agree), then fixed for the run — mid-run
+  // approvals join the NEXT run. Past-the-end indices are dropped, so pool
+  // growth or author removals can never strand or crash the run.
+  const shuffledRun = useRef(-1);
+  useEffect(() => {
+    // Once per run: mid-run pool growth must NOT reshuffle the live run.
+    if (shuffledRun.current === runId) return;
+    shuffledRun.current = runId;
+    const indices = drillPool.map((_, i) => i);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    setOrder(indices);
+  }, [runId, drillPool]);
+  const runPool = useMemo(() => {
+    if (!order) return drillPool;
+    return order.filter((i) => i < drillPool.length).map((i) => drillPool[i]);
+  }, [order, drillPool]);
+  const totalQuestions = runPool.length;
   // Clamp during render (never in an effect): the pool only grows as the
   // community approves questions, so this is purely defensive.
   const safeIndex = totalQuestions === 0 ? 0 : Math.min(currentIndex, totalQuestions - 1);
-  const current = drillPool[safeIndex];
+  const current = runPool[safeIndex];
   const currentQ = current.question;
   const isCorrect = isAnswerSubmitted && selectedOption === currentQ.correctAnswer;
   const isRunEnding = lives <= 0 || safeIndex === totalQuestions - 1;
@@ -237,6 +261,7 @@ export default function Home() {
     setSelectedOption(null);
     setIsAnswerSubmitted(false);
     setIsGameOver(false);
+    setRunId((id) => id + 1);
   };
 
   const changeBin = (next: 'all' | QuestionDifficulty) => {
@@ -276,19 +301,24 @@ export default function Home() {
     const correct = selectedOption === currentQ.correctAnswer;
     setIsAnswerSubmitted(true);
 
-    // ELO match vs the question's difficulty bin.
-    const mapBefore = mapRatingFor(elo, currentQ.mapId).rating;
-    const result = applyEloAnswer(elo, currentQ.mapId, currentQ.difficulty, correct);
-    setElo(result.state);
-    setLastElo({
-      mapId: currentQ.mapId,
-      before: mapBefore,
-      after: result.mapRating,
-      overallBefore: overall.rating,
-      overallAfter: result.overall.rating,
-      bonus: result.bonus,
-      winStreak: result.winStreak,
-    });
+    // ELO match vs the question's difficulty bin — paused while the
+    // question is under community review (lives + streaks still count).
+    if (current.flagged) {
+      setLastElo(null);
+    } else {
+      const mapBefore = mapRatingFor(elo, currentQ.mapId).rating;
+      const result = applyEloAnswer(elo, currentQ.mapId, currentQ.difficulty, correct);
+      setElo(result.state);
+      setLastElo({
+        mapId: currentQ.mapId,
+        before: mapBefore,
+        after: result.mapRating,
+        overallBefore: overall.rating,
+        overallAfter: result.overall.rating,
+        bonus: result.bonus,
+        winStreak: result.winStreak,
+      });
+    }
 
     if (correct) {
       playCorrectSound();
@@ -324,15 +354,17 @@ export default function Home() {
   };
 
   const handleRestart = () => {
-    setCurrentIndex(0);
-    setLives(MAX_LIVES);
+    resetRun();
     setStreak(0);
-    setSelectedOption(null);
-    setIsAnswerSubmitted(false);
-    setIsGameOver(false);
   };
 
   const contentWidth = view === 'drill' ? 'max-w-xl' : 'max-w-3xl';
+  const drillTitle =
+    mapFilter.length === 1
+      ? `${mapLabel(mapFilter[0])} Drill`
+      : mapFilter.length > 1
+        ? 'Mixed Drill'
+        : 'Tarkov Drill';
 
   return (
     <main className="min-h-dvh flex flex-col items-center p-4 bg-zinc-950 text-zinc-100">
@@ -519,7 +551,7 @@ export default function Home() {
           </div>
 
           <div className="hidden min-[500px]:flex text-sm font-semibold text-zinc-400 tracking-wider uppercase items-center gap-1 min-w-0">
-            <Flag className="w-4 h-4 shrink-0" /> <span className="truncate">Customs Drill</span>
+            <Flag className="w-4 h-4 shrink-0" /> <span className="truncate">{drillTitle}</span>
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -568,7 +600,7 @@ export default function Home() {
           type="button"
           onClick={() => setGuideSection('ranks')}
           className="-mt-3 mb-1"
-          title={`Overall ELO ${overall.rating}${overall.mapsPlayed > 0 ? ` across ${overall.mapsPlayed} map${overall.mapsPlayed === 1 ? '' : 's'}` : ''}: every answer is a rated match between that map and the question's difficulty. Ratings are per map — unplayed maps never drag you down.${
+          title={`Overall ELO ${overall.rating}${overall.mapsPlayed > 0 ? ` across ${overall.mapsPlayed} map${overall.mapsPlayed === 1 ? '' : 's'}` : ''}: every answer is a rated match between that map and the question's difficulty (flagged questions pause rating). Ratings are per map — unplayed maps never drag you down.${
             rankProgress.next
               ? ` ${rankProgress.pointsAway} points to ${rankProgress.next.label}.`
               : ' Max rank — defend it.'
@@ -614,6 +646,10 @@ export default function Home() {
               </h1>
               <div className="flex flex-wrap items-center gap-2">
                 <DifficultyBadge difficulty={currentQ.difficulty} />
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-300 bg-zinc-800/80 border border-zinc-700 rounded-full px-3 py-1">
+                  <MapPin className="w-3.5 h-3.5" />
+                  {mapLabel(currentQ.mapId)}
+                </span>
                 {currentQ.type === 'extract_logic' && (
                   <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-300 bg-sky-950/60 border border-sky-800 rounded-full px-3 py-1">
                     <MapPin className="w-3.5 h-3.5" />
@@ -630,7 +666,7 @@ export default function Home() {
                 ) : current.source === 'community' ? (
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-300 bg-emerald-950/60 border border-emerald-800 rounded-full px-3 py-1">
                     <Users className="w-3.5 h-3.5" />
-                    Community{current.authorName ? ` · by ${current.authorName}` : ''}
+                    {current.seeded ? 'Demo' : `Community${current.authorName ? ` · by ${current.authorName}` : ''}`}
                   </span>
                 ) : current.overridden ? (
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-300 bg-sky-950/60 border border-sky-800 rounded-full px-3 py-1">
@@ -652,7 +688,7 @@ export default function Home() {
               <DrillImage
                 key={currentQ.id}
                 src={currentQ.imageUrl}
-                alt="Mystery landmark to identify on Customs"
+                alt={`Mystery landmark to identify on ${mapLabel(currentQ.mapId)}`}
               />
             )}
 
@@ -711,6 +747,7 @@ export default function Home() {
                     selectedOption={selectedOption!}
                     isCorrect={isCorrect}
                     elo={lastElo ?? undefined}
+                    unrated={current.flagged}
                   />
 
                   <button
@@ -733,7 +770,6 @@ export default function Home() {
         </>
       )}
 
-      {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} />}
       {guideSection && (
         <GuideDialog initialSection={guideSection} onClose={() => setGuideSection(null)} />
       )}
@@ -742,12 +778,10 @@ export default function Home() {
           questionId={reportTarget.id}
           questionPrompt={reportTarget.prompt}
           onClose={() => setReportTarget(null)}
-          onRequireAuth={() => {
-            setReportTarget(null);
-            setAuthOpen(true);
-          }}
+          onRequireAuth={() => setAuthOpen(true)}
         />
       )}
+      {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} />}
     </main>
   );
 }

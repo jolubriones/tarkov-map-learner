@@ -50,6 +50,8 @@ export interface LiveQuestion {
   submissionId?: string;
   /** True when a community correction replaced the original. */
   overridden: boolean;
+  /** True for bundled demo content (presented honestly, never as peers). */
+  seeded?: boolean;
   flagged: boolean;
   openReportCount: number;
 }
@@ -357,6 +359,7 @@ export function resolveQuestion(
     authorName: submission.authorName,
     submissionId: submission.id,
     overridden: Boolean(submission.correctedAt),
+    seeded: submission.seeded,
     flagged,
     openReportCount,
   };
@@ -383,6 +386,7 @@ export function getLiveQuestions(state: CommunityState): LiveQuestion[] {
       authorName: s.authorName,
       submissionId: s.id,
       overridden: Boolean(s.correctedAt),
+      seeded: s.seeded,
       flagged: isFlagged(state, s.id),
       openReportCount: openReportsFor(state, s.id).length,
     }));
@@ -493,8 +497,11 @@ export function actionableReviewCount(state: CommunityState): number {
   const myFix = fixes.filter(
     (c) => c.authorId !== user.id && !hasReviewed(c.reviews, user.id)
   ).length;
+  const ownIds = new Set(
+    state.submissions.filter((s) => s.authorId === user.id).map((s) => s.id)
+  );
   const myFlag = flagged.filter(
-    (f) => !f.keepVotes.some((v) => v.userId === user.id)
+    (f) => !ownIds.has(f.questionId) && !f.keepVotes.some((v) => v.userId === user.id)
   ).length;
   return mySub + myFix + myFlag;
 }
@@ -767,11 +774,16 @@ export function proposeCorrection(
 function applyCorrection(state: CommunityState, fix: CorrectionProposal): void {
   const submission = state.submissions.find((s) => s.id === fix.questionId);
   if (submission) {
+    // The target left the pool (removed/rejected after the fix was
+    // proposed) — the fix dies with it instead of writing a zombie.
+    if (submission.status !== 'approved') return;
     submission.draft = { ...fix.draft };
     submission.correctedAt = nowIso();
     submission.correctedBy = fix.authorName;
-  } else {
+  } else if (CUSTOMS_DRILL_QUESTIONS.some((q) => q.id === fix.questionId)) {
     state.overrides[fix.questionId] = { ...fix.draft };
+  } else {
+    return;
   }
   for (const report of state.reports) {
     if (report.questionId === fix.questionId && report.status === 'open') {
@@ -857,6 +869,28 @@ export function withdrawSubmission(submissionId: string): ActionResult {
   }
   if (sub.authorId !== user.id) {
     return { ok: false, error: 'You can only withdraw your own submissions.' };
+  }
+  update((s) => {
+    s.submissions = s.submissions.filter((x) => x.id !== submissionId);
+  });
+  return { ok: true };
+}
+
+/**
+ * Remove your own APPROVED submission from the pool. The escape hatch for
+ * post-merge dupes (your local copy + the new bank copy): pull yours and
+ * the official one stands alone. Pending fixes against it die unapplied.
+ */
+export function removeSubmission(submissionId: string): ActionResult {
+  const state = load();
+  const user = requireUser(state);
+  if (!user) return { ok: false, error: 'Sign in to remove.' };
+  const sub = state.submissions.find((s) => s.id === submissionId);
+  if (!sub || sub.status !== 'approved') {
+    return { ok: false, error: 'Only live questions can be removed from your pool.' };
+  }
+  if (sub.authorId !== user.id) {
+    return { ok: false, error: 'You can only remove your own questions.' };
   }
   update((s) => {
     s.submissions = s.submissions.filter((x) => x.id !== submissionId);
@@ -963,6 +997,7 @@ function seedState(): CommunityState {
     {
       // Sits at 2/3 approvals — one visitor review publishes it.
       id: 'u-seed-bigred',
+      seeded: true,
       draft: {
         mapId: 'customs',
         type: 'extract_logic',
@@ -987,6 +1022,7 @@ function seedState(): CommunityState {
     {
       // Sits at 1/3 — needs more eyes.
       id: 'u-seed-ruaf',
+      seeded: true,
       draft: {
         mapId: 'customs',
         type: 'compass_check',
@@ -1008,6 +1044,7 @@ function seedState(): CommunityState {
     {
       // Already approved — shows the community badge in drills.
       id: 'u-seed-crackhouse',
+      seeded: true,
       draft: {
         mapId: 'customs',
         type: 'landmark_mc',
@@ -1052,6 +1089,7 @@ function seedState(): CommunityState {
   const corrections: CorrectionProposal[] = [
     {
       id: 'f-seed-1',
+      seeded: true,
       questionId: 'c-12',
       draft: {
         mapId: 'customs',

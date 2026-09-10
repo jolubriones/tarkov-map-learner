@@ -15,10 +15,12 @@ three question kinds: `landmark_mc`, `compass_check`, `extract_logic`.
    pick a `difficulty` bin (`essential` | `enlightened` | `sherpa` |
    `immortal` — see `community.md`), and always write an `explanation` +
    `tip` (shown after answering).
-2. For `landmark_mc`, set `imageUrl` to a stable, hotlinkable photo
-   (Pexels URLs with `?auto=compress&cs=tinysrgb&w=800` work well).
-   The UI hides broken images gracefully, but validation will fail —
-   fix the URL instead of shipping without one.
+2. For `landmark_mc`, a photo is **required** — the picture is the
+   question. Self-host it: drop the file in
+   `public/images/<map>/` (jpeg/png/gif/webp, ≤3MB) and set
+   `imageUrl` to that `/images/…` path. Remote URLs still validate
+   (they must be reachable) but rot — prefer self-hosted, and never
+   ship a landmark without an image (build error, not warning).
 3. Run `npm run validate`, then commit. Every `npm run build` validates
    first (`prebuild`), so a broken bank can never ship.
 
@@ -27,10 +29,11 @@ three question kinds: `landmark_mc`, `compass_check`, `extract_logic`.
 Errors (block the build): missing id/prompt, fewer than 2 options,
 `correctAnswer` not in `options`, duplicate ids (within and across
 banks), invalid compass values, `extract_logic` without `spawnLocation`,
-missing/invalid `difficulty`, unreachable images.
+missing/invalid `difficulty`, landmark without image, and image
+problems (missing/non-photo self-hosted files, unreachable remotes).
 
 Warnings (ship anyway): missing `explanation`/`tip`/`mapId`, duplicate
-options, landmark without image.
+options.
 
 No image-network access (sandboxed CI, offline)? Run with
 `--skip-images` or `SKIP_IMAGE_CHECK=1` — integrity checks still run.
@@ -39,5 +42,6 @@ No image-network access (sandboxed CI, offline)? Run with
 
 Add a second exported array (e.g. `SHORELINE_DRILL_QUESTIONS`) — the
 validator picks up every exported array automatically, including
-cross-bank id clashes. The drill page still needs wiring to offer map
-choice; the bank format itself is ready.
+cross-bank id clashes, and the drill's map-filter chips + per-map ELO
+key off `mapId`, so a new map lights up as soon as its questions land
+(see `community.md` for the curator merge flow that assigns ids).

@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { LogOut, User, Zap } from 'lucide-react';
 import { useCommunity } from '@/hooks/useCommunity';
 import { signIn, signInDemo, signOut, signUp } from '@/lib/community/store';
+import { COMMUNITY_CONFIG as C } from '@/lib/community/config';
 import {
   overallRating,
   playedMaps,
@@ -170,7 +171,7 @@ export default function AuthDialog({ onClose }: { onClose: () => void }) {
             onChange={(e) => setUsername(e.target.value)}
             autoComplete="username"
             autoFocus
-            maxLength={32}
+            maxLength={C.usernameMax}
             placeholder="e.g. ratking42"
             className={inputClass}
           />
@@ -201,7 +202,7 @@ export default function AuthDialog({ onClose }: { onClose: () => void }) {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
             maxLength={128}
-            placeholder={mode === 'signin' ? 'Your password' : 'Min 6 characters'}
+            placeholder={mode === 'signin' ? 'Your password' : `Min ${C.passwordMin} characters`}
             className={inputClass}
           />
         </div>

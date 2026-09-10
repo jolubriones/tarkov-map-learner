@@ -62,6 +62,8 @@ export interface Submission {
   reviews: Review[];
   correctedAt?: string;
   correctedBy?: string;
+  /** True for the bundled demo entries that make first-run queues explorable. */
+  seeded?: boolean;
 }
 
 export const REPORT_REASONS = [
@@ -104,6 +106,8 @@ export interface CorrectionProposal {
   decidedAt?: string;
   status: CorrectionStatus;
   reviews: Review[];
+  /** True for the bundled demo entries that make first-run queues explorable. */
+  seeded?: boolean;
 }
 
 /** A "this flagged question actually looks correct" vote. */

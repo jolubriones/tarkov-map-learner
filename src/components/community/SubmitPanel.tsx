@@ -53,7 +53,8 @@ export default function SubmitPanel({
         <h2 className="text-xl font-extrabold text-zinc-100">Submitted for review</h2>
         <p className="text-sm text-zinc-400 max-w-md leading-relaxed">
           Your question is in the review queue. Once {C.approvalsToPublish} players approve it, it
-          joins the drill pool for everyone — you can watch its progress under Review.
+          joins the drill pool on this device — you can watch its progress under Review, then
+          export it from Review → Mine to propose it for the shared bank.
         </p>
         <div className="mt-1 flex flex-wrap justify-center gap-2">
           <button
@@ -91,8 +92,8 @@ export default function SubmitPanel({
     <div className="flex flex-col gap-4">
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-xs text-zinc-400 leading-relaxed">
         Posting as <span className="font-bold text-zinc-200">{user.displayName}</span> · needs{' '}
-        {C.approvalsToPublish} approvals to go live · answer + explanation + difficulty bin
-        required · you can’t review your own entry.
+        {C.approvalsToPublish} approvals to go live · map + answer + explanation + difficulty
+        bin required (landmarks also need a photo) · you can’t review your own entry.
       </div>
       <QuestionForm
         key={formKey}
