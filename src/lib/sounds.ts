@@ -12,14 +12,9 @@ const MUTE_KEY = 'tarkov-map-learner-storage_muted';
 let audioCtx: AudioContext | null = null;
 
 function getContext(): AudioContext | null {
-  if (typeof window === 'undefined') return null;
-  const Ctor =
-    window.AudioContext ||
-    (window as unknown as { webkitAudioContext?: typeof AudioContext })
-      .webkitAudioContext;
-  if (!Ctor) return null;
+  if (typeof window === 'undefined' || !window.AudioContext) return null;
   if (!audioCtx) {
-    audioCtx = new Ctor();
+    audioCtx = new window.AudioContext();
   }
   // Browsers suspend the context until a user gesture — resume on demand.
   if (audioCtx.state === 'suspended') {

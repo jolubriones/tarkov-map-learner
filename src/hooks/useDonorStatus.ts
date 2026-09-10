@@ -10,9 +10,7 @@ import {
  * redeemed/removed in this tab (DONOR_CHANGE_EVENT) or another tab (`storage`).
  */
 export function useDonorStatus(): DonorEntitlement | null {
-  const [entitlement, setEntitlement] = useState<DonorEntitlement | null>(() =>
-    getDonorEntitlement()
-  );
+  const [entitlement, setEntitlement] = useState(() => getDonorEntitlement());
 
   useEffect(() => {
     const sync = () => setEntitlement(getDonorEntitlement());

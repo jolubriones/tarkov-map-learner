@@ -44,6 +44,7 @@ export default function AdSlot({ slot, className = '', children }: AdSlotProps) 
   useEffect(() => {
     if (
       pushedRef.current ||
+      donor !== null ||
       !enabled ||
       provider !== 'adsense' ||
       !adsenseClient ||
@@ -58,7 +59,7 @@ export default function AdSlot({ slot, className = '', children }: AdSlotProps) 
     } catch {
       // Ads are best-effort — never break the drill over an ad error.
     }
-  }, [enabled, provider, adsenseClient, providerSlotId, slot]);
+  }, [donor, enabled, provider, adsenseClient, providerSlotId, slot]);
 
   if (!slotConfig) {
     if (process.env.NODE_ENV !== 'production') {

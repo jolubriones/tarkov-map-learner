@@ -5,6 +5,18 @@
  * the fallback below is RFC-2606-reserved and must never go live.
  * (Inlined at build time like all NEXT_PUBLIC_* vars — rebuild after changing.)
  */
-export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tarkov-map-learner.example.com'
-).replace(/\/+$/, '');
+function readSiteUrl(): string {
+  const raw = (
+    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tarkov-map-learner.example.com'
+  ).replace(/\/+$/, '');
+  try {
+    new URL(raw);
+  } catch {
+    throw new Error(
+      `Invalid NEXT_PUBLIC_SITE_URL: ${JSON.stringify(process.env.NEXT_PUBLIC_SITE_URL)}`
+    );
+  }
+  return raw;
+}
+
+export const SITE_URL = readSiteUrl();

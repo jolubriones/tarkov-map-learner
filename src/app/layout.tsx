@@ -5,6 +5,7 @@ import AppFooter from '@/components/AppFooter';
 import { SITE_URL } from '@/lib/site';
 
 const SITE_NAME = 'Tarkov Map Learner';
+const SITE_TITLE = 'Tarkov Map Learner — Customs Map Drills';
 const SITE_DESCRIPTION =
   'Fast-paced spatial memory drills for Escape from Tarkov. Learn Customs extracts, landmarks, and compass directions through quick-fire quizzes.';
 
@@ -18,7 +19,7 @@ const OG_IMAGE = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'Tarkov Map Learner — Customs Map Drills',
+    default: SITE_TITLE,
     template: '%s | Tarkov Map Learner',
   },
   description: SITE_DESCRIPTION,
@@ -42,13 +43,13 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: SITE_NAME,
-    title: 'Tarkov Map Learner — Customs Map Drills',
+    title: SITE_TITLE,
     description: SITE_DESCRIPTION,
     images: [OG_IMAGE],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Tarkov Map Learner — Customs Map Drills',
+    title: SITE_TITLE,
     description: SITE_DESCRIPTION,
     images: [OG_IMAGE.url],
   },
