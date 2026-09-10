@@ -1,4 +1,13 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tarkov Map Learner
+
+Fast-paced spatial memory drills for Escape from Tarkov (Customs).
+
+## Monetization (ads & donations)
+
+The app is monetization-ready: ad slots and donation buttons are placed but
+disabled by default. Copy `.env.example` to `.env.local` and see
+[`docs/monetization.md`](docs/monetization.md) to preview placements or
+enable them.
 
 ## Getting Started
 

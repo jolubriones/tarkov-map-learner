@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { RotateCcw, Heart, Flame, Flag, Volume2, VolumeX, MapPin } from 'lucide-react';
 import { CUSTOMS_DRILL_QUESTIONS } from '@/lib/mockData';
 import AnswerFeedback from '@/components/AnswerFeedback';
+import AdSlot from '@/components/ads/AdSlot';
+import DonateButton from '@/components/DonateButton';
 import {
   playCorrectSound,
   playWrongSound,
@@ -168,6 +170,8 @@ export default function Home() {
                 />
               ))}
             </div>
+            {/* Renders only once NEXT_PUBLIC_DONATION_URL is set */}
+            <DonateButton variant="icon" />
             <button
               onClick={toggleMute}
               title={muted ? 'Unmute sounds' : 'Mute sounds'}
@@ -201,12 +205,15 @@ export default function Home() {
                 ? `Great job! You finished with a streak of ${streak}.`
                 : 'You lost all your lives. Study the map and try again!'}
             </p>
+            {/* Ad + donation placements: both render null until configured */}
+            <AdSlot slot="game-over" className="w-full" />
             <button
               onClick={handleRestart}
               className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl border-b-4 border-emerald-800 active:border-b-0 active:translate-y-1 transition-all flex items-center gap-2"
             >
               <RotateCcw className="w-5 h-5" /> Try Again
             </button>
+            <DonateButton variant="cta" />
           </div>
         ) : (
           /* Question Content */
@@ -303,6 +310,11 @@ export default function Home() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Below-content ad placement: renders null until ads are enabled */}
+      <div className="w-full max-w-xl">
+        <AdSlot slot="below-content" />
       </div>
     </main>
   );
