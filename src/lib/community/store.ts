@@ -1,11 +1,12 @@
 import { CUSTOMS_DRILL_QUESTIONS } from '@/lib/mockData';
-import type { Question } from '@/lib/types';
 import { COMMUNITY_CONFIG as C } from './config';
 import {
   type ActionResult,
   type CommunityState,
   type CommunityUser,
   type CorrectionProposal,
+  type FlaggedItem,
+  type LiveQuestion,
   type QuestionDraft,
   type QuestionExport,
   type QuestionReport,
@@ -42,27 +43,9 @@ const STORAGE_KEY = 'tarkov-map-learner-community-v1';
  */
 export const COMMUNITY_STATE_VERSION = 2;
 
-/** A live drill question plus its community provenance. */
-export interface LiveQuestion {
-  question: Question;
-  source: 'official' | 'community';
-  authorName?: string;
-  submissionId?: string;
-  /** True when a community correction replaced the original. */
-  overridden: boolean;
-  /** True for bundled demo content (presented honestly, never as peers). */
-  seeded?: boolean;
-  flagged: boolean;
-  openReportCount: number;
-}
-
-export interface FlaggedItem {
-  questionId: string;
-  live: LiveQuestion;
-  reports: QuestionReport[];
-  keepVotes: { userId: string; userName: string; createdAt: string }[];
-  corrections: CorrectionProposal[];
-}
+// Live shapes live in types.ts (shared with the hosted backend) —
+// re-exported here so existing consumers keep working unchanged.
+export type { FlaggedItem, LiveQuestion } from './types';
 
 // ---------------------------------------------------------------------------
 // Persistence + subscription

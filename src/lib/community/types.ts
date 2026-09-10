@@ -1,4 +1,4 @@
-import type { QuestionDifficulty, QuestionType } from '@/lib/types';
+import type { Question, QuestionDifficulty, QuestionType } from '@/lib/types';
 
 /**
  * Community data model.
@@ -31,7 +31,8 @@ export interface CommunityUser {
   /** Unique handle, stored lowercase. */
   username: string;
   displayName: string;
-  passHash: string;
+  /** Local adapter only — hosted auth owns password material (Supabase Auth). */
+  passHash?: string;
   createdAt: string;
   /** True for the built-in demo/seed accounts. */
   seeded?: boolean;
@@ -151,4 +152,26 @@ export interface QuestionExport {
     decidedAt?: string;
     draft: QuestionDraft;
   }[];
+}
+
+/** A live drill question plus its community provenance. */
+export interface LiveQuestion {
+  question: Question;
+  source: 'official' | 'community';
+  authorName?: string;
+  submissionId?: string;
+  /** True when a community correction replaced the original. */
+  overridden: boolean;
+  /** True for bundled demo content (presented honestly, never as peers). */
+  seeded?: boolean;
+  flagged: boolean;
+  openReportCount: number;
+}
+
+export interface FlaggedItem {
+  questionId: string;
+  live: LiveQuestion;
+  reports: QuestionReport[];
+  keepVotes: { userId: string; userName: string; createdAt: string }[];
+  corrections: CorrectionProposal[];
 }
