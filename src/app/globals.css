@@ -4,10 +4,9 @@
   color-scheme: dark;
 }
 
+/* Note: body margin/background/text colors come from Tailwind preflight
+   plus the bg/text classes on <body> in layout.tsx. */
 body {
-  background-color: #09090b;
-  color: #f4f4f5;
-  margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 

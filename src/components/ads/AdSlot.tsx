@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import Script from 'next/script';
 import { AD_SLOTS, monetizationConfig } from '@/lib/monetization';
 
@@ -35,11 +35,20 @@ export default function AdSlot({ slot, className = '', children }: AdSlotProps) 
   const { enabled, provider, adsenseClient, slotIds, showPlaceholders } =
     monetizationConfig.ads;
   const providerSlotId = slotConfig ? (slotIds[slotConfig.id] ?? null) : null;
+  // Guard against double ad requests (StrictMode mounts effects twice in dev).
+  const pushedRef = useRef(false);
 
   useEffect(() => {
-    if (!enabled || provider !== 'adsense' || !adsenseClient || !providerSlotId) {
+    if (
+      pushedRef.current ||
+      !enabled ||
+      provider !== 'adsense' ||
+      !adsenseClient ||
+      !providerSlotId
+    ) {
       return;
     }
+    pushedRef.current = true;
     try {
       window.adsbygoogle = window.adsbygoogle || [];
       window.adsbygoogle.push({});
@@ -59,7 +68,7 @@ export default function AdSlot({ slot, className = '', children }: AdSlotProps) 
   if (showPlaceholders && (!enabled || provider === 'none')) {
     return (
       <div
-        data-ad-slot={slot}
+        data-ad-placement={slot}
         data-ad-preview="true"
         aria-hidden="true"
         style={{ minHeight: slotConfig.minHeight }}
@@ -82,7 +91,7 @@ export default function AdSlot({ slot, className = '', children }: AdSlotProps) 
     if (!children) return null;
     return (
       <div
-        data-ad-slot={slot}
+        data-ad-placement={slot}
         style={{ minHeight: slotConfig.minHeight }}
         className={`overflow-hidden ${className}`}
       >
@@ -95,7 +104,7 @@ export default function AdSlot({ slot, className = '', children }: AdSlotProps) 
     if (!adsenseClient || !providerSlotId) return null;
     return (
       <div
-        data-ad-slot={slot}
+        data-ad-placement={slot}
         style={{ minHeight: slotConfig.minHeight }}
         className={`overflow-hidden ${className}`}
       >

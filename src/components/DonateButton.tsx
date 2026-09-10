@@ -18,9 +18,9 @@ export default function DonateButton({
   variant = 'cta',
   className = '',
 }: DonateButtonProps) {
-  const { enabled, url, platform, message } = monetizationConfig.donations;
+  const { url, platform, message } = monetizationConfig.donations;
 
-  if (!enabled || !url) return null;
+  if (!url) return null;
 
   if (variant === 'icon') {
     return (
@@ -56,7 +56,7 @@ export default function DonateButton({
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className={`w-full py-3 rounded-xl font-bold text-center bg-amber-600/15 border border-amber-700/60 hover:bg-amber-600/25 text-amber-300 transition-colors flex items-center justify-center gap-2 ${className}`}
+      className={`w-full py-3 rounded-xl font-bold bg-amber-600/15 border border-amber-700/60 hover:bg-amber-600/25 text-amber-300 transition-colors flex items-center justify-center gap-2 ${className}`}
     >
       <HeartHandshake className="w-5 h-5" />
       {message} on {platform}

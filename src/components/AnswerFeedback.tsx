@@ -1,12 +1,9 @@
-'use client';
-
 import {
   CheckCircle2,
   XCircle,
   Lightbulb,
   BookOpen,
   Target,
-  Flag,
 } from 'lucide-react';
 import type { Question } from '@/lib/types';
 
@@ -31,7 +28,6 @@ export default function AnswerFeedback({
 }: AnswerFeedbackProps) {
   return (
     <div
-      key={question.id}
       role="alert"
       aria-live="assertive"
       className={`rounded-xl border p-4 flex flex-col gap-3 ${
@@ -49,7 +45,7 @@ export default function AnswerFeedback({
         ) : (
           <XCircle className="w-6 h-6 text-red-400 shrink-0 mt-0.5" />
         )}
-        <div className="min-w-0">
+        <div>
           <h4 className="font-bold text-sm">
             {isCorrect ? 'Excellent — correct!' : 'Incorrect'}
           </h4>
@@ -65,13 +61,7 @@ export default function AnswerFeedback({
       </div>
 
       {/* Correct answer reveal */}
-      <div
-        className={`flex items-start gap-2.5 rounded-lg border px-3 py-2.5 ${
-          isCorrect
-            ? 'border-emerald-700/60 bg-emerald-900/40'
-            : 'border-emerald-700/60 bg-emerald-900/30'
-        }`}
-      >
+      <div className="flex items-start gap-2.5 rounded-lg border border-emerald-700/60 bg-emerald-900/40 px-3 py-2.5">
         <Target className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
         <p className="text-sm leading-snug">
           <span className="text-zinc-400 text-xs font-semibold uppercase tracking-wide">
@@ -100,17 +90,6 @@ export default function AnswerFeedback({
           <p className="text-xs leading-relaxed text-amber-100/90">
             {question.tip}
           </p>
-        </div>
-      )}
-
-      {/* Extract-logic hint: reinforce spawn context on wrong answers */}
-      {!isCorrect && question.type === 'extract_logic' && (
-        <div className="flex items-start gap-2 text-[11px] text-zinc-500">
-          <Flag className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-          <span>
-            Spawn was <span className="font-semibold text-zinc-300">{question.spawnLocation}</span> —
-            remember the opposite-side rule for your next raid.
-          </span>
         </div>
       )}
     </div>

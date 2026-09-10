@@ -26,9 +26,15 @@ function readStoredNumber(key: string, fallback: number): number {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
+// A stored 0 means the last run ended in death — always start a fresh run alive.
+function readStoredLives(): number {
+  const stored = readStoredNumber('lives', MAX_LIVES);
+  return stored >= 1 && stored <= MAX_LIVES ? stored : MAX_LIVES;
+}
+
 export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [lives, setLives] = useState(() => readStoredNumber('lives', MAX_LIVES));
+  const [lives, setLives] = useState(readStoredLives);
   const [streak, setStreak] = useState(() => readStoredNumber('streak', 0));
   const [bestStreak, setBestStreak] = useState(() => readStoredNumber('bestStreak', 0));
   const [gamesPlayed, setGamesPlayed] = useState(() => readStoredNumber('gamesPlayed', 0));
@@ -36,7 +42,7 @@ export default function Home() {
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
   // Lazy init from storage (same pattern as above; isMuted is SSR-safe)
-  const [muted, setMutedState] = useState<boolean>(() => isMuted());
+  const [muted, setMutedState] = useState(() => isMuted());
 
   const totalQuestions = CUSTOMS_DRILL_QUESTIONS.length;
   const currentQ = CUSTOMS_DRILL_QUESTIONS[currentIndex];
@@ -72,6 +78,8 @@ export default function Home() {
     if (correct) {
       playCorrectSound();
       setStreak((prev) => prev + 1);
+      // Best streak is fully maintained here — every new high is recorded
+      // on correct answers, so game-end/restart need no further updates.
       setBestStreak((prev) => Math.max(prev, streak + 1));
     } else {
       playWrongSound();
@@ -96,7 +104,6 @@ export default function Home() {
       // Last question answered - game completes
       setIsGameOver(true);
       setGamesPlayed((prev) => prev + 1);
-      setBestStreak((prev) => Math.max(prev, streak));
       playCompleteSound();
     }
   };
@@ -105,11 +112,9 @@ export default function Home() {
     setCurrentIndex(0);
     setLives(MAX_LIVES);
     setStreak(0);
-    setBestStreak((prev) => Math.max(prev, streak));
     setSelectedOption(null);
     setIsAnswerSubmitted(false);
     setIsGameOver(false);
-    setGamesPlayed((prev) => prev + 1);
   };
 
   return (
@@ -118,7 +123,7 @@ export default function Home() {
         {/* Header Stats */}
         <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
           <div className="flex items-center gap-2 font-bold text-amber-500">
-            <Flame className="w-6 h-6 fill-amber-500 text-amber-500" />{' '}
+            <Flame className="w-6 h-6 fill-amber-500 text-amber-500" />
             <span className="text-lg">{streak} Streak</span>
           </div>
 
@@ -188,9 +193,6 @@ export default function Home() {
           /* Question Content */
           <div className="flex flex-col gap-6">
             <div className="space-y-3">
-              <span className="text-xs font-bold text-zinc-500 tracking-widest uppercase">
-                Question {currentIndex + 1} of {totalQuestions}
-              </span>
               <h2 className="text-xl sm:text-2xl font-bold text-zinc-100">
                 {currentQ.prompt}
               </h2>

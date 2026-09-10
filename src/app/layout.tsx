@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import './globals.css';
 import AppFooter from '@/components/AppFooter';
 
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
