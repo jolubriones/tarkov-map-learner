@@ -20,11 +20,15 @@ import {
 const STORAGE_KEY = 'tarkov-map-learner-storage';
 const MAX_LIVES = 3;
 
-// SSR-safe read of a persisted number (falls back when missing/invalid).
+// SSR-safe read of a persisted number (falls back when missing/invalid/blocked).
 function readStoredNumber(key: string, fallback: number): number {
   if (typeof window === 'undefined') return fallback;
-  const parsed = parseInt(localStorage.getItem(`${STORAGE_KEY}_${key}`) ?? '', 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
+  try {
+    const parsed = parseInt(localStorage.getItem(`${STORAGE_KEY}_${key}`) ?? '', 10);
+    return Number.isNaN(parsed) ? fallback : parsed;
+  } catch {
+    return fallback; // Storage blocked (e.g. private mode) — use defaults.
+  }
 }
 
 // A stored 0 means the last run ended in death — always start a fresh run alive.
@@ -52,10 +56,14 @@ export default function Home() {
 
   // Persist state to localStorage
   useEffect(() => {
-    localStorage.setItem(`${STORAGE_KEY}_streak`, streak.toString());
-    localStorage.setItem(`${STORAGE_KEY}_lives`, lives.toString());
-    localStorage.setItem(`${STORAGE_KEY}_bestStreak`, bestStreak.toString());
-    localStorage.setItem(`${STORAGE_KEY}_gamesPlayed`, gamesPlayed.toString());
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_streak`, streak.toString());
+      localStorage.setItem(`${STORAGE_KEY}_lives`, lives.toString());
+      localStorage.setItem(`${STORAGE_KEY}_bestStreak`, bestStreak.toString());
+      localStorage.setItem(`${STORAGE_KEY}_gamesPlayed`, gamesPlayed.toString());
+    } catch {
+      // Storage blocked or full — the drill still works, just not persisted.
+    }
   }, [streak, lives, bestStreak, gamesPlayed]);
 
   const toggleMute = () => {

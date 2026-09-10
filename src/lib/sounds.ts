@@ -30,12 +30,20 @@ function getContext(): AudioContext | null {
 
 export function isMuted(): boolean {
   if (typeof window === 'undefined') return false;
-  return localStorage.getItem(MUTE_KEY) === '1';
+  try {
+    return localStorage.getItem(MUTE_KEY) === '1';
+  } catch {
+    return false; // Storage blocked — sound on, preference not remembered.
+  }
 }
 
 export function setMuted(muted: boolean): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(MUTE_KEY, muted ? '1' : '0');
+  try {
+    localStorage.setItem(MUTE_KEY, muted ? '1' : '0');
+  } catch {
+    // Ignore — sound just won't remember the preference.
+  }
 }
 
 interface ToneOptions {

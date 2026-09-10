@@ -20,7 +20,7 @@ export const AD_FREE_THRESHOLD_USD = 5;
 /** How long one redemption stays ad-free. User-facing copy calls this "1 year". */
 export const AD_FREE_DURATION_DAYS = 365;
 
-export const DONOR_STORAGE_KEY = 'tarkov-map-learner-storage_donor';
+const DONOR_STORAGE_KEY = 'tarkov-map-learner-storage_donor';
 
 /** Dispatched on window when the entitlement changes (redeem/remove). */
 export const DONOR_CHANGE_EVENT = 'tarkov-donor-change';
@@ -45,7 +45,8 @@ function notifyDonorChange(): void {
 
 /**
  * STUB: accept test codes from NEXT_PUBLIC_DONOR_CODES.
- * Format: "CODE[:USD],..." — e.g. "FRIEND:10,TESTER" (amount defaults to $5).
+ * Format: "CODE[:USD],..." — e.g. "FRIEND:10,TESTER"
+ * (bare codes default to the ad-free threshold).
  *
  * TODO(launch): replace with a server-side check (e.g. a Supabase Edge
  * Function, Cloudflare Worker, or your own backend endpoint verifying
@@ -58,8 +59,13 @@ async function verifyDonorCode(code: string): Promise<DonorVerification> {
     const [rawCode, rawAmount] = entry.split(':').map((part) => part.trim());
     if (!rawCode || rawCode.toUpperCase() !== code) continue;
     const amount =
-      rawAmount === undefined || rawAmount === '' ? 5 : Number(rawAmount);
-    return { valid: true, donatedUsd: Number.isFinite(amount) ? amount : 5 };
+      rawAmount === undefined || rawAmount === ''
+        ? AD_FREE_THRESHOLD_USD
+        : Number(rawAmount);
+    return {
+      valid: true,
+      donatedUsd: Number.isFinite(amount) ? amount : AD_FREE_THRESHOLD_USD,
+    };
   }
   return { valid: false };
 }
@@ -132,10 +138,6 @@ export function getDonorEntitlement(): DonorEntitlement | null {
     return null;
   }
   return parsed as DonorEntitlement;
-}
-
-export function isAdFree(): boolean {
-  return getDonorEntitlement() !== null;
 }
 
 export function clearDonorEntitlement(): void {

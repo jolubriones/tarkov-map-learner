@@ -29,7 +29,6 @@ export default function AnswerFeedback({
   return (
     <div
       role="alert"
-      aria-live="assertive"
       className={`rounded-xl border p-4 flex flex-col gap-3 ${
         isCorrect ? 'animate-feedback-in' : 'animate-feedback-shake'
       } ${

@@ -1,8 +1,7 @@
 import type { Question } from './types';
 
-// Expanded Customs question bank - 15 questions covering landmarks, compass, and exports
+// Customs question bank — 15 questions covering landmarks, compass, and extracts
 export const CUSTOMS_DRILL_QUESTIONS: Question[] = [
-  // Original questions preserved
   {
     id: 'c-01',
     mapId: 'customs',
@@ -30,12 +29,12 @@ export const CUSTOMS_DRILL_QUESTIONS: Question[] = [
     type: 'extract_logic',
     prompt: 'You spawned at Crossroads (Far West). Which guaranteed PMC extract is OPEN for you?',
     spawnLocation: 'Crossroads / Trailer Park',
-    options: ['Crossroads', 'Trailer Park Workers', 'ZB-1011', 'Smuggler\'s Boat'],
+    options: ['Crossroads', 'Trailer Park Workers', 'ZB-1011', "Smuggler's Boat"],
     correctAnswer: 'ZB-1011',
     explanation: 'Spawning on the far west side guarantees your main extraction will be on the far east at ZB-1011.',
     tip: 'Opposite-side rule: PMC extracts are always across the map from your spawn. Spawn west → plan a full west-to-east route ending at ZB-1011.'
   },
-  // New landmark questions
+  // Landmark questions
   {
     id: 'c-04',
     mapId: 'customs',
@@ -68,7 +67,7 @@ export const CUSTOMS_DRILL_QUESTIONS: Question[] = [
     explanation: 'The railway runs along the eastern edge of Customs connecting various points.',
     tip: 'The railway is a handrail: follow the tracks and they funnel you along the eastern edge toward ZB-1011 and the far-east extracts.'
   },
-  // New compass questions
+  // Compass questions
   {
     id: 'c-07',
     mapId: 'customs',
@@ -97,9 +96,9 @@ export const CUSTOMS_DRILL_QUESTIONS: Question[] = [
     options: ['N', 'NE', 'E', 'SE'],
     correctAnswer: 'E',
     explanation: 'From Customs Checkpoint, the main road runs east-west.',
-    tip: 'The main road is the map\'s spine running west→east. Face along it toward the center of the map and you are looking EAST.'
+    tip: "The main road is the map's spine running west→east. Face along it toward the center of the map and you are looking EAST."
   },
-  // New extract questions
+  // Extract-logic questions
   {
     id: 'c-10',
     mapId: 'customs',
@@ -133,7 +132,6 @@ export const CUSTOMS_DRILL_QUESTIONS: Question[] = [
     explanation: 'The Streets extract is right at the Gas Station location.',
     tip: 'Some extracts share a name with a nearby landmark but are NOT the spawn itself — confirm the extract icon on your map before committing.'
   },
-  // Mixed difficulty questions
   {
     id: 'c-13',
     mapId: 'customs',
